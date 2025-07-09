@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { User, LogOut, Settings, ChevronDown, Info } from "lucide-react"
+import { User, LogOut, Settings } from "lucide-react"
 import type { UserProfile } from '../types/api/index'
 
 interface ProfileDropdownProps {
@@ -29,17 +29,36 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
     }
   }
 
+  const photo = user?.photo_url;
+  const isInitials = typeof photo === 'string' && photo.length === 2 && photo === photo.toUpperCase();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="flex items-center gap-2 px-3 py-2 h-auto rounded-full bg-white hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 h-auto rounded-full bg-white hover:bg-gray-100 transition-colors shadow-md border border-gray-200"
         >
-          <span className="text-sm font-medium text-gray-700">
+          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 font-bold text-base shadow-sm border border-gray-300">
+            {isInitials
+              ? photo
+              : photo
+              ? <img src={photo} alt={user?.full_name} className="w-9 h-9 rounded-full object-cover border border-gray-300" />
+              : user?.full_name?.split(' ').map(name => name[0]).join('').toUpperCase()}
+          </div>
+          <span className="text-sm font-semibold text-gray-800">
             {user?.full_name || "User Name"}
           </span>
-          <ChevronDown className="h-4 w-4 text-gray-500" />
+          <svg
+            className="ml-1 w-4 h-4 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
         </Button>
       </DropdownMenuTrigger>
       

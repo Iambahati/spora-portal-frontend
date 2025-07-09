@@ -17,7 +17,6 @@ export function NavigationHeader({
   user, 
   showNotifications = true 
 }: NavigationHeaderProps) {
-  const { t } = useI18n()
 
   return (
     <div className="border-b border-slate-200 bg-white/50 backdrop-blur-sm">
@@ -26,12 +25,12 @@ export function NavigationHeader({
           <div className="flex items-center gap-6">
             {/* Logo: strict inline SVG only, no text */}
             <div className="flex items-center">
-                <img 
-                src="/images/logo.svg" 
+              <img 
+                src="/images/logo.jpg" 
                 alt="Spora One Trust Logo" 
-                className="w-full h-full object-contain"
+                className="w-25 h-12 object-contain" 
                 draggable={false}
-                />
+              />
             </div>
           </div>
 
