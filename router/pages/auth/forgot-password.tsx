@@ -4,6 +4,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { forgotPasswordSchema, type ForgotPasswordFormData } from "@/lib/validation-schemas"
 import { useI18n } from "@/lib/i18n/context"
+import { apiClient } from "@/lib/api-client"
+
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,25 +34,19 @@ export default function ForgotPasswordPage() {
     setSuccess(false)
 
     try {
-      // API call to Laravel backend
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/forgot-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify(data),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to send reset email")
+      const response = await apiClient.forgotPassword(data)
+      // If the API returns a message, show it as a success toast or message
+      if (response && response.message) {
+        setSuccess(true)
+      } else {
+        setError(t('errors.generic'))
       }
-
-      setSuccess(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+    } catch (err: any) {
+      if (err && err.message) {
+        setError(err.message)
+      } else {
+        setError(t('errors.generic'))
+      }
     } finally {
       setIsLoading(false)
     }

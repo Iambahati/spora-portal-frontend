@@ -1,5 +1,5 @@
 import React from "react"
-import { useAuthCheck } from "@/router/hooks/use-auth-check"
+import { useAuthState } from "@/lib/auth-context"
 import { NavigationHeader } from "@/components/navigation-header"
 import { InvestmentStages } from "@/components/investment-stages"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -7,20 +7,20 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { useI18n } from "@/lib/i18n/context"
-import { Settings, Bell, Shield, Globe, Moon, Sun } from "lucide-react"
+import { Settings, Bell, Shield, Globe, Moon } from "lucide-react"
 
 export default function SettingsPage() {
-  const { user } = useAuthCheck()
+  const { user } = useAuthState()
   const { t } = useI18n()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
+      /* Header */
       <NavigationHeader 
         user={{
-          name: user?.name,
-          email: user?.email,
-          avatar: undefined
+          name: user?.full_name ?? "",
+          email: user?.email ?? "",
+          avatar: user?.photo_url ?? (user?.full_name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || undefined)
         }}
         title="Settings"
       />

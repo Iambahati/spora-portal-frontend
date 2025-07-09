@@ -55,7 +55,7 @@ export default function RouterAuthLayout({ children }: RouterAuthLayoutProps) {
           {children}
           
           {/* Footer with About Us link */}
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
+          {/* <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <Link 
                 to="/about-us"
@@ -66,7 +66,7 @@ export default function RouterAuthLayout({ children }: RouterAuthLayoutProps) {
               <span>•</span>
               <span>© 2024 Spora One Trust</span>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

@@ -5,6 +5,12 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { activatePasswordSchema, type ActivatePasswordFormData } from "@/lib/validation-schemas"
 import { useI18n } from "@/lib/i18n/context"
 import { apiClient } from "@/lib/api-client"
+import type {
+  ActivationStage,
+  ActivationUser,
+  UserProfile
+} from '@/lib/api-client'
+import { getPostLoginRedirect } from '@/lib/auth-utils'
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,14 +19,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, Lock, ArrowRight, AlertCircle, Loader2, CheckCircle2, Mail, RefreshCw } from "lucide-react"
 import RouterAuthLayout from "@/router/components/router-auth-layout"
-
-interface ActivationResponse {
-  success: boolean
-  message: string
-  data?: {
-    user?: any
-  }
-}
 
 export default function ActivatePage() {
   const navigate = useNavigate()
@@ -41,6 +39,11 @@ export default function ActivatePage() {
   const [submitting, setSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
   const [success, setSuccess] = useState(false)
+
+  // Add state for activation details
+  const [activationStage, setActivationStage] = useState<ActivationStage | null>(null)
+  const [activationNextStep, setActivationNextStep] = useState<string | null>(null)
+  const [activationUser, setActivationUser] = useState<ActivationUser | null>(null)
 
   const form = useForm<ActivatePasswordFormData>({
     resolver: zodResolver(activatePasswordSchema),
@@ -87,25 +90,66 @@ export default function ActivatePage() {
 
     // Validate the activation token
     validateActivationToken(emailParam, tokenParam)
-  }, [searchParams, form])
+  }, [searchParams])
+
+  // Helper: Map activation user (possibly partial) to a valid UserProfile
+  function mapActivationUserToUserProfile(user: any): UserProfile {
+    // Allowed status values
+    const allowedStatus = ["active", "inactive", "suspended"] as const;
+    // Allowed kyc_status values
+    const allowedKycStatus = ["not_submitted", "pending", "approved", "rejected"] as const;
+
+    return {
+      id: typeof user.id === "number" ? user.id : 0,
+      full_name: typeof user.full_name === "string" ? user.full_name : "",
+      email: typeof user.email === "string" ? user.email : "",
+      role: typeof user.role === "string" ? user.role : "investor",
+      created_at: typeof user.created_at === "string" ? user.created_at : new Date().toISOString(),
+      updated_at: typeof user.updated_at === "string" ? user.updated_at : new Date().toISOString(),
+      // status: coerce to allowed union or undefined
+      status: allowedStatus.includes(user.status) ? user.status : undefined,
+      // kyc_status: coerce to allowed union or default
+      kyc_status: allowedKycStatus.includes(user.kyc_status) ? user.kyc_status : "not_submitted",
+      // investment_stage: ensure object shape or fallback
+      investment_stage: user.investment_stage && typeof user.investment_stage === "object"
+        ? {
+            id: typeof user.investment_stage.id === "number" ? user.investment_stage.id : 0,
+            name: user.investment_stage.name || "",
+            display_name: user.investment_stage.display_name || "",
+            description: user.investment_stage.description || "",
+          }
+        : { id: 0, name: "", display_name: "", description: "" },
+    };
+  }
 
   const validateActivationToken = async (email: string, token: string) => {
     try {
       setValidatingToken(true)
-      const response = await apiClient.get<ActivationResponse>(`/auth/activate?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`)
-      
-      if (response.success) {
+      const response = await apiClient.validateActivationToken(email, token)
+      if (response.success && response.data) {
         setTokenValid(true)
         setActivationError("")
+        // Map activation user to UserProfile
+        const user: UserProfile = mapActivationUserToUserProfile(response.data.user)
+        setActivationUser(user)
+        setActivationStage(response.data.user.activation_stage || null)
+        setActivationNextStep(response.data.next_step || null)
       } else {
         setTokenValid(false)
         setActivationError(response.message)
-        setIsExpired(response.message.toLowerCase().includes("expired"))
+        setIsExpired(
+          response.message.toLowerCase().includes("expired") ||
+          !!(response.data && response.data.user?.activation_stage?.is_expired)
+        )
+        setActivationStage(response.data?.user?.activation_stage || null)
+        setActivationNextStep(response.data?.next_step || null)
       }
     } catch (error: any) {
       setTokenValid(false)
       setActivationError(error.message || "Failed to validate activation link")
       setIsExpired(error.message?.toLowerCase().includes("expired") || false)
+      setActivationStage(null)
+      setActivationNextStep(null)
     } finally {
       setValidatingToken(false)
     }
@@ -114,13 +158,21 @@ export default function ActivatePage() {
   const onSubmit = async (data: ActivatePasswordFormData) => {
     try {
       setSubmitting(true)
-      const response = await apiClient.post<ActivationResponse>("/auth/activate/update-password", data)
-      
-      if (response.success) {
+      const response = await apiClient.activateAccount(data)
+      if (response.success && response.data) {
         setSuccess(true)
-        // Redirect to sign in after 2 seconds
+        // Map activation user to UserProfile
+        const user: UserProfile = mapActivationUserToUserProfile(response.data.user)
+        setActivationUser(user)
+        setActivationStage(user.activation_stage || null)
+        // Store token for immediate login
+        if (response.data.token) {
+          localStorage.setItem('token', response.data.token)
+        }
+        // Use role/state-aware redirect after short delay
+        const redirectPath = getPostLoginRedirect(user)
         setTimeout(() => {
-          navigate("/auth/signin", { replace: true })
+          navigate(redirectPath, { replace: true })
         }, 2000)
       } else {
         form.setError("root", { message: response.message })
@@ -135,12 +187,10 @@ export default function ActivatePage() {
   const resendActivationEmail = async () => {
     try {
       setResending(true)
-      const response = await apiClient.post<ActivationResponse>("/auth/activate/resend", { email })
-      
+      const response = await apiClient.resendActivationEmail(email)
       if (response.success) {
         setActivationError("")
-        // Show success message temporarily
-        setActivationError("Activation email sent successfully. Please check your inbox.")
+        setActivationError(response.message || "Activation email sent successfully. Please check your inbox.")
         setTimeout(() => setActivationError(""), 3000)
       } else {
         setActivationError(response.message)
@@ -283,13 +333,14 @@ export default function ActivatePage() {
                 <Mail className="h-4 w-4" />
                 {t("common.email")}
               </Label>
-              <div className="relative">
-                <Input
-                  value={email}
-                  disabled
-                  className="h-14 text-base border-gray-200 rounded-xl bg-gray-50"
-                />
-              </div>
+                <div className="relative">
+                  <Input
+                    value={email}
+                    disabled
+                    className="h-14 text-base border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed"
+                    aria-label="Email address"
+                  />
+                </div>
             </div>
 
             {/* Password input */}
@@ -451,6 +502,16 @@ export default function ActivatePage() {
         </div>
 
         {renderContent()}
+
+        {/* Debug info - remove in production */}
+        {/* {process.env.NODE_ENV === "development" && activationUser && (
+          <div className="mt-8 p-4 bg-gray-50 rounded-lg border">
+            <h3 className="text-sm font-semibold text-gray-800 mb-2">Debug Info</h3>
+            <pre className="text-xs text-gray-700 whitespace-pre-wrap">
+              {JSON.stringify({ email, token, activationUser, activationStage }, null, 2)}
+            </pre>
+          </div>
+        )} */}
       </div>
     </RouterAuthLayout>
   )

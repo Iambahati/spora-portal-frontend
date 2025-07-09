@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useAuthCheck } from '../../hooks/use-auth-check'
+import { useAuthState } from '@/lib/auth-context'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { 
   FileCheck, 
@@ -98,7 +98,7 @@ const mockApprovedApplications = [
 ]
 
 export default function KYCOfficerDashboard() {
-  const { user } = useAuthCheck()
+  const { user } = useAuthState()
   
   const [kycApplications, setKycApplications] = useState(mockKYCApplications)
   const [approvedApplications, setApprovedApplications] = useState(mockApprovedApplications)

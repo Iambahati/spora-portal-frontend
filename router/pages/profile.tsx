@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import QRCode from 'qrcode'
-import { useAuthCheck } from '../hooks/use-auth-check'
+import { useAuthState } from '@/lib/auth-context'
 import { apiClient, type TwoFactorStatus, type DeviceSession } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { useI18n } from '@/lib/i18n/context'
@@ -65,7 +65,7 @@ export default function ProfilePage() {
   const [tab, setTab] = useState('profile')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { user, isLoading } = useAuthCheck()
+  const { user, loading } = useAuthState()
 
   // Handle URL parameters and hash fragments for deep linking
   useEffect(() => {
@@ -84,7 +84,7 @@ export default function ProfilePage() {
     }
   }, [])
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />

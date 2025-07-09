@@ -5,29 +5,27 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useAuth } from "@/lib/auth-context"
 import { loginSchema, type LoginFormData } from "@/lib/validation-schemas"
 import { useI18n } from "@/lib/i18n/context"
+import { getPostLoginRedirect } from '@/lib/auth-utils'
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Eye, EyeOff, Mail, ArrowRight, AlertCircle, Lock, Loader2, User } from "lucide-react"
+
+import { Eye, EyeOff, Mail, ArrowRight, AlertCircle, Lock, Loader2 } from "lucide-react"
 import RouterAuthLayout from "@/router/components/router-auth-layout"
-import { DemoModeBanner, DevModeBanner } from "@/components/demo-mode-banner"
+
 
 export default function SignInPage() {
   const navigate = useNavigate()
-  const location = useLocation()
   const { login, loading, error, clearError } = useAuth()
   const { t } = useI18n()
   
   const [showPassword, setShowPassword] = useState(false)
   
   // Get the intended destination from location state
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
-  const defaultRedirect = isDemoMode ? "/profile" : "/kyc-upload"
-  const from = location.state?.from?.pathname || defaultRedirect
+  const isDemoMode = import.meta.env.NODE_ENV  === 'development'
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -41,15 +39,21 @@ export default function SignInPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       clearError()
-      await login({
+      const resp = await login({
         email: data.email,
         password: data.password,
       })
-      
-      // Navigate to intended destination or default
-      navigate(from, { replace: true })
+      // Use the correct path to user and token (API returns { data: { user, token } })
+      const user = resp.data?.user
+      if (!user) {
+        console.error('Login response missing user object', resp)
+        return
+      }
+      const redirectPath = getPostLoginRedirect(user)
+      setTimeout(() => {
+        navigate(redirectPath, { replace: true })
+      }, 100)
     } catch (error) {
-      // Error is handled by the auth context
       console.error('Login failed:', error)
     }
   }
@@ -98,7 +102,7 @@ export default function SignInPage() {
                       form.setValue('password', import.meta.env.VITE_DEMO_PASSWORD || 'test1234')
                     }}
                     className="w-full bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
-                  >
+                    >
                     🎭 Fill Demo Credentials
                   </Button>
                 </div>
@@ -111,7 +115,7 @@ export default function SignInPage() {
                   className="text-sm font-semibold flex items-center gap-2"
                   style={{ color: "#6b7280" }}
                 >
-                  <User style={{ height: "0.875rem", width: "0.875rem", color: "#6b7280" }} />
+                  <Mail style={{ height: "0.875rem", width: "0.875rem", color: "#6b7280" }} />
                   {t("common.email")}
                 </Label>
                 <div className="relative">

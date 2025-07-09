@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useAuthCheck } from "@/router/hooks/use-auth-check"
+import { useAuthState } from "@/lib/auth-context"
 import { KYCForm } from "@/components/kyc-form"
 import { SuccessSplash } from "@/components/success-splash"
 import { NavigationHeader } from "@/components/navigation-header"
@@ -11,7 +11,7 @@ import { InvestmentStages } from '@/components/investment-stages'
 import { getStageForPage } from '@/lib/investment-stage-utils'
 
 export default function KYCUploadPage() {
-  const { user } = useAuthCheck()
+  const { user } = useAuthState()
   const [showSplash, setShowSplash] = useState(false)
 
   const handleKYCSubmit = async (formData: FormData) => {

@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { resetPasswordSchema, type ResetPasswordFormData } from "@/lib/validation-schemas"
 import { useI18n } from "@/lib/i18n/context"
+import { apiClient } from "@/lib/api-client"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +18,7 @@ export default function ResetPasswordPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { t } = useI18n()
-  
+
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -39,18 +40,25 @@ export default function ResetPasswordPage() {
   })
 
   const watchPassword = form.watch("password")
+  const watchPasswordConfirmation = form.watch("password_confirmation")
+  // Remove duplicate or unused state
+  const passwordsMatch = !watchPassword || !watchPasswordConfirmation || watchPassword === watchPasswordConfirmation
 
   // Calculate password strength
   React.useEffect(() => {
     let strength = 0
     if (watchPassword) {
-      if (watchPassword.length >= 8) strength++
       if (/[A-Z]/.test(watchPassword)) strength++
       if (/[a-z]/.test(watchPassword)) strength++
       if (/[0-9]/.test(watchPassword)) strength++
       if (/[^A-Za-z0-9]/.test(watchPassword)) strength++
     }
-    setPasswordStrength(strength)
+    // Only show 'Strong' if all 4 criteria are met AND length >= 8
+    if (strength === 4 && watchPassword.length >= 8) {
+      setPasswordStrength(5)
+    } else {
+      setPasswordStrength(strength)
+    }
   }, [watchPassword])
 
   useEffect(() => {
@@ -69,22 +77,8 @@ export default function ResetPasswordPage() {
     setSuccess(false)
 
     try {
-      // API call to Laravel backend
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/reset-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify(data),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to reset password")
-      }
-
+      // Use API client
+      await apiClient.resetPassword(data)
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
@@ -112,7 +106,7 @@ export default function ResetPasswordPage() {
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <CardTitle className="text-3xl font-bold" style={{ color: "#040956" }}>
-               {t("auth.passwordResetSuccess")}
+                {t("auth.passwordResetSuccessful")}
               </CardTitle>
               <CardDescription className="text-lg text-gray-500">
                 {t("auth.signInWithNewPassword")}
@@ -120,10 +114,10 @@ export default function ResetPasswordPage() {
             </CardHeader>
             <CardContent className="px-12 pb-12">
               <Link to="/auth/signin">
-                <Button 
+                <Button
                   className="w-full h-14 text-base font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                  style={{ 
-                    backgroundColor: "#eb6e03", 
+                  style={{
+                    backgroundColor: "#eb6e03",
                     color: "white",
                     border: "none"
                   }}
@@ -159,43 +153,43 @@ export default function ResetPasswordPage() {
                 {t("auth.invalidResetLink")}
               </CardTitle>
               <CardDescription className="text-lg text-gray-500">
-                 {t("auth.invalidResetLinkMessage")}
+                {t("auth.invalidResetLinkMessage")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8 px-12 pb-12">
-              
+
               <div className="space-y-6">
                 <Link to="/auth/forgot-password">
-                  <Button 
+                  <Button
                     className="w-full h-14 text-base font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                    style={{ 
-                      backgroundColor: "#eb6e03", 
+                    style={{
+                      backgroundColor: "#eb6e03",
                       color: "white",
                       border: "none"
                     }}
                   >
-                   {t("auth.requestNewResetLink")}
+                    {t("auth.requestNewResetLink")}
                   </Button>
                 </Link>
-                
+
                 <div className="text-center pt-2 border-t border-gray-100">
-                              <Link
-                                to="/auth/signin"
-                                className="inline-flex items-center gap-2 font-medium transition-colors duration-200"
-                                style={{ color:  "#6b7280" }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = "#d97706"
-                                    e.currentTarget.style.textDecoration = "underline"
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = "#6b7280"
-                                    e.currentTarget.style.textDecoration = "none"
-                                  }}
-                              >
-                                <ArrowLeft className="h-4 w-4 " />
-                                {t("auth.backToSignIn")}
-                              </Link>
-                            </div>
+                  <Link
+                    to="/auth/signin"
+                    className="inline-flex items-center gap-2 font-medium transition-colors duration-200"
+                    style={{ color: "#6b7280" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "#d97706"
+                      e.currentTarget.style.textDecoration = "underline"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "#6b7280"
+                      e.currentTarget.style.textDecoration = "none"
+                    }}
+                  >
+                    <ArrowLeft className="h-4 w-4 " />
+                    {t("auth.backToSignIn")}
+                  </Link>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -219,10 +213,10 @@ export default function ResetPasswordPage() {
         <Card className="bg-white border-0 shadow-2xl rounded-3xl overflow-hidden">
           <CardHeader className="space-y-3 text-center pb-8 pt-12">
             <CardTitle className="text-3xl font-bold" style={{ color: "#040956" }}>
-              Reset Your Password
+              {t("auth.setNewPassword")}
             </CardTitle>
             <CardDescription className="text-lg text-gray-500">
-              Enter your new password to secure your account
+              {t("auth.resetPasswordDescription")}
             </CardDescription>
           </CardHeader>
 
@@ -239,32 +233,14 @@ export default function ResetPasswordPage() {
               {/* Password input */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label 
-                    htmlFor="password" 
+                  <Label
+                    htmlFor="password"
                     className="text-sm font-semibold flex items-center gap-2"
                     style={{ color: "#040956" }}
                   >
                     <Lock className="h-4 w-4" style={{ color: "#040956" }} />
-                    New Password
+                    {t("auth.newPassword")}
                   </Label>
-                  {watchPassword && (
-                    <div className="flex items-center space-x-1">
-                      {passwordStrength <= 2 ? (
-                        <AlertCircle className="h-3 w-3 text-red-500" />
-                      ) : passwordStrength <= 3 ? (
-                        <AlertCircle className="h-3 w-3 text-yellow-500" />
-                      ) : (
-                        <CheckCircle className="h-3 w-3 text-green-500" />
-                      )}
-                      <span className={`text-xs font-medium ${
-                        passwordStrength <= 2 ? 'text-red-500' : 
-                        passwordStrength <= 3 ? 'text-yellow-500' : 
-                        'text-green-500'
-                      }`}>
-                        {passwordStrength <= 2 ? 'Weak' : passwordStrength <= 3 ? 'Good' : 'Strong'}
-                      </span>
-                    </div>
-                  )}
                 </div>
                 <div className="relative">
                   <Input
@@ -288,6 +264,46 @@ export default function ResetPasswordPage() {
                     )}
                   </Button>
                 </div>
+                {/* Password strength indicator and warning */}
+                {watchPassword && (
+                  <div className="space-y-1.5 animate-in fade-in-50">
+                    {/* Strength bar - only one color at a time */}
+                    <div className="flex space-x-1 mt-1">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-1.5 rounded-full transition-all duration-200 w-full ${passwordStrength >= i
+                              ? passwordStrength <= 2
+                                ? 'bg-red-400'
+                                : passwordStrength <= 3
+                                  ? 'bg-yellow-400'
+                                  : 'bg-green-500'
+                              : 'bg-gray-200'
+                            }`}
+                        />
+                      ))}
+                    </div>
+                    {/* Strength label and warning */}
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {passwordStrength <= 2 ? (
+                        <AlertCircle className="h-3 w-3 text-red-500" />
+                      ) : passwordStrength <= 3 ? (
+                        <AlertCircle className="h-3 w-3 text-yellow-500" />
+                      ) : (
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                      )}
+                      <span className={`text-xs font-medium ${passwordStrength <= 2 ? 'text-red-500' : passwordStrength <= 3 ? 'text-yellow-500' : 'text-green-500'
+                        }`}>
+                        {passwordStrength <= 2 ? t('auth.passwordWeak') : passwordStrength <= 3 ? t('auth.passwordGood') : t('auth.passwordStrong')}
+                      </span>
+                      {passwordStrength <= 2 && (
+                        <span className="ml-2 text-xs text-red-500 font-medium">
+                          {t("auth.passwordTooWeak")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {form.formState.errors.password && (
                   <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
                     <AlertCircle className="h-3 w-3 flex-shrink-0" />
@@ -298,13 +314,13 @@ export default function ResetPasswordPage() {
 
               {/* Confirm Password input */}
               <div className="space-y-3">
-                <Label 
-                  htmlFor="password_confirmation" 
+                <Label
+                  htmlFor="password_confirmation"
                   className="text-sm font-semibold flex items-center gap-2"
                   style={{ color: "#040956" }}
                 >
                   <Lock className="h-4 w-4" style={{ color: "#040956" }} />
-                  Confirm New Password
+                  {t("auth.confirmNewPassword")}
                 </Label>
                 <div className="relative">
                   <Input
@@ -328,6 +344,13 @@ export default function ResetPasswordPage() {
                     )}
                   </Button>
                 </div>
+                {/* Show error if passwords do not match */}
+                {!passwordsMatch && watchPassword && watchPasswordConfirmation && (
+                  <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    <span>Passwords do not match</span>
+                  </p>
+                )}
                 {form.formState.errors.password_confirmation && (
                   <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
                     <AlertCircle className="h-3 w-3 flex-shrink-0" />
@@ -340,21 +363,28 @@ export default function ResetPasswordPage() {
               <Button
                 type="submit"
                 className="w-full h-14 text-base font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                style={{ 
-                  backgroundColor: "#eb6e03", 
+                style={{
+                  backgroundColor: "#eb6e03",
                   color: "white",
                   border: "none"
                 }}
-                disabled={isLoading || form.formState.isSubmitting || Boolean(watchPassword && passwordStrength <= 2)}
+                disabled={
+                  isLoading ||
+                  form.formState.isSubmitting ||
+                  Boolean(watchPassword && passwordStrength <= 2) ||
+                  !passwordsMatch ||
+                  !watchPassword ||
+                  !watchPasswordConfirmation
+                }
               >
                 {isLoading || form.formState.isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating Password...
+                    {t("auth.updatingPassword")}
                   </>
                 ) : (
                   <>
-                    Update Password
+                    {t("auth.updatePassword")}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -366,10 +396,18 @@ export default function ResetPasswordPage() {
               <Link
                 to="/auth/signin"
                 className="inline-flex items-center gap-2 font-medium transition-colors duration-200"
-                style={{ color: "#040956" }}
+                style={{ color: "#6b7280" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "#d97706"
+                  e.currentTarget.style.textDecoration = "underline"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "#6b7280"
+                  e.currentTarget.style.textDecoration = "none"
+                }}
               >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Sign In
+                <ArrowLeft className="h-4 w-4 " />
+                {t("auth.backToSignIn")}
               </Link>
             </div>
           </CardContent>

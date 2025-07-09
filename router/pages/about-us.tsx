@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { useAuthCheck } from "@/router/hooks/use-auth-check"
+import { useAuthState } from "@/lib/auth-context"
 import { NavigationHeader } from "@/components/navigation-header"
 import AppFooter from "@/components/professional-footer"
 import { Card, CardContent } from "@/components/ui/card"
@@ -23,7 +23,7 @@ import {
 const AboutUsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("governance")
   const { t } = useI18n()
-  const { user } = useAuthCheck()
+  const { user } = useAuthState()
 
   // Fund allocation data for the chart
   const fundAllocation = [
@@ -80,25 +80,15 @@ const AboutUsPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       {/* Navigation Header */}
       <NavigationHeader 
-        user={{
-          name: user?.name,
-          email: user?.email,
-          avatar: undefined
-        }}
-        title="About Us"
-        showNotifications={false}
+        user={user ?? undefined}
       />
-      
       {/* Hero Section */}
       <div className="relative bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="flex items-center justify-center mb-6">
-              <Building2 className="h-12 w-12 text-primary mr-4" />
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
-                {t("aboutUs.title")}
-              </h1>
-            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
+              {t("aboutUs.title")}
+            </h1>
             <p className="text-xl text-gray-600 leading-relaxed">
               {t("aboutUs.subtitle")}
             </p>

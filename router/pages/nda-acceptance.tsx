@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
-import { useAuthCheck } from '../hooks/use-auth-check'
+import { useAuthState } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n/context'
 import { NavigationHeader } from '@/components/navigation-header'
 import AppFooter from '@/components/professional-footer'
@@ -103,14 +103,14 @@ By accepting this agreement, you acknowledge that you have read, understood, and
 }
 
 export default function NDAAcceptancePage() {
-  const { user } = useAuthCheck()
+  const { user } = useAuthState()
   const { t } = useI18n()
   const navigate = useNavigate()
-  
+
   const [currentNDA, setCurrentNDA] = useState<any>(null)
   const [ndaAccepted, setNdaAccepted] = useState<boolean | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   // Reading tracking states
   const [readingProgress, setReadingProgress] = useState(0)
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false)
@@ -119,51 +119,86 @@ export default function NDAAcceptancePage() {
   const [comprehensionChecks, setComprehensionChecks] = useState({
     understoodConfidentiality: false,
     understoodConsequences: false,
-    confirmedIdentity: false
+    confirmedIdentity: false,
+    confirmedRead: false // New checkbox
   })
-  
+
   const contentRef = useRef<HTMLDivElement>(null)
   const MINIMUM_READING_TIME = 30 // seconds
   const READING_PROGRESS_THRESHOLD = 95 // percentage
+
+  // Helper to get a unique user key for localStorage
+  const getUserKey = () => {
+    if (user && typeof user === 'object') {
+      // Try all possible unique fields in order
+      if ('id' in user && user.id) return String(user.id)
+      if ('email' in user && user.email) return user.email
+      if ('full_name' in user && user.full_name) return user.full_name
+      if ('name' in user && user.name) return user.name
+    }
+    return 'anonymous'
+  }
+  const TIMER_KEY = `nda_timer_${getUserKey()}`
+  const STATUS_KEY = `nda_status_${getUserKey()}`
+
+  // Helper to get a display name for the user
+  const getUserDisplayName = () => {
+    if (user && typeof user === 'object') {
+      if ('full_name' in user && user.full_name) return user.full_name
+      if ('name' in user && user.name) return user.name
+      if ('email' in user && user.email) return user.email
+    }
+    return 'this user'
+  }
 
   // Load active NDA and check user status
   useEffect(() => {
     const nda = getActiveNDA()
     setCurrentNDA(nda)
-    
+
     // Check if user has already accepted/declined this NDA
-    const userNDAStatus = localStorage.getItem(`nda_status_${user?.id}`)
+    const userNDAStatus = localStorage.getItem(STATUS_KEY)
     if (userNDAStatus) {
       setNdaAccepted(userNDAStatus === 'accepted')
     }
-    
-    // Start reading timer
+
+    // Restore timer from storage if available
+    const storedTime = localStorage.getItem(TIMER_KEY)
+    if (storedTime && !isNaN(Number(storedTime))) {
+      setTimeSpentReading(Math.min(Number(storedTime), MINIMUM_READING_TIME))
+    } else {
+      setTimeSpentReading(0)
+    }
     setReadingStartTime(Date.now())
   }, [user])
 
-  // Update reading time every second
+  // Update reading time every second, cap at 30s, persist to localStorage
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (readingStartTime && ndaAccepted === null) {
-        setTimeSpentReading(Math.floor((Date.now() - readingStartTime) / 1000))
-      }
-    }, 1000)
-
-    return () => clearInterval(interval)
+    if (ndaAccepted !== null) return // Don't run timer if NDA is accepted/declined
+    if (timeSpentReading >= MINIMUM_READING_TIME) return // Already capped
+    let interval: NodeJS.Timeout | null = null
+    if (readingStartTime) {
+      interval = setInterval(() => {
+        setTimeSpentReading(prev => {
+          const next = Math.min(prev + 1, MINIMUM_READING_TIME)
+          localStorage.setItem(TIMER_KEY, String(next))
+          return next
+        })
+      }, 1000)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
   }, [readingStartTime, ndaAccepted])
 
   // Scroll tracking for reading progress
   const handleScroll = useCallback(() => {
     if (!contentRef.current) return
-
     const element = contentRef.current
     const scrollTop = element.scrollTop
     const scrollHeight = element.scrollHeight - element.clientHeight
     const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 100
-
     setReadingProgress(Math.min(progress, 100))
-
-    // Check if user has scrolled to bottom
     if (progress >= READING_PROGRESS_THRESHOLD) {
       setHasScrolledToBottom(true)
     }
@@ -176,20 +211,17 @@ export default function NDAAcceptancePage() {
       timeSpentReading >= MINIMUM_READING_TIME &&
       comprehensionChecks.understoodConfidentiality &&
       comprehensionChecks.understoodConsequences &&
-      comprehensionChecks.confirmedIdentity
+      comprehensionChecks.confirmedIdentity &&
+      comprehensionChecks.confirmedRead // Require new checkbox
     )
   }
 
   const handleAcceptNDA = async () => {
     setIsSubmitting(true)
     try {
-      // In real app, this would make API call to record acceptance
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
-      
-      localStorage.setItem(`nda_status_${user?.id}`, 'accepted')
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      localStorage.setItem(STATUS_KEY, 'accepted')
       setNdaAccepted(true)
-      
-      // Redirect to KYC portal after acceptance
       setTimeout(() => {
         navigate('/kyc-upload')
       }, 2000)
@@ -203,10 +235,8 @@ export default function NDAAcceptancePage() {
   const handleDeclineNDA = async () => {
     setIsSubmitting(true)
     try {
-      // In real app, this would make API call to record decline
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
-      
-      localStorage.setItem(`nda_status_${user?.id}`, 'declined')
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      localStorage.setItem(STATUS_KEY, 'declined')
       setNdaAccepted(false)
     } catch (error) {
       console.error('Failed to decline NDA:', error)
@@ -316,12 +346,7 @@ export default function NDAAcceptancePage() {
     <div className="min-h-screen bg-gray-50">
       {/* Navigation Header */}
       <NavigationHeader 
-        user={{
-          name: user?.full_name || user?.name,
-          email: user?.email,
-          avatar: user?.avatar
-        }}
-        title="NDA Agreement"
+        user={user ?? undefined}
       />
 
       {/* Investment Stages Progress */}
@@ -496,15 +521,32 @@ export default function NDAAcceptancePage() {
                     <Checkbox
                       id="identity"
                       checked={comprehensionChecks.confirmedIdentity}
-                      onCheckedChange={(checked) =>
+                      onCheckedChange={(checked: boolean | "indeterminate") =>
                         setComprehensionChecks(prev => ({
                           ...prev,
-                          confirmedIdentity: checked as boolean
+                          confirmedIdentity: Boolean(checked)
                         }))
                       }
                     />
                     <label htmlFor="identity" className="text-sm leading-relaxed cursor-pointer">
-                      I confirm that I am {user?.full_name || user?.name} and I have the authority to enter into this agreement on my behalf.
+                      I confirm that I am {getUserDisplayName()} and I have the authority to enter into this agreement on my behalf.
+                    </label>
+                  </div>
+
+                  {/* New checkbox for reading confirmation */}
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      id="read"
+                      checked={comprehensionChecks.confirmedRead}
+                      onCheckedChange={(checked) =>
+                        setComprehensionChecks(prev => ({
+                          ...prev,
+                          confirmedRead: checked as boolean
+                        }))
+                      }
+                    />
+                    <label htmlFor="read" className="text-sm leading-relaxed cursor-pointer">
+                      I confirm that I have read the NDA and understand its contents in full.
                     </label>
                   </div>
                 </CardContent>

@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useAuth } from "@/lib/auth-context"
 import { registerSchema, type RegisterFormData } from "@/lib/validation-schemas"
 import { useI18n } from "@/lib/i18n/context"
+import { getPostLoginRedirect } from '@/lib/auth-utils'
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,13 +50,19 @@ export default function SignUpPage() {
   }, [watchPassword])
 
   const onSubmit = async (data: RegisterFormData) => {
-
     try {
       clearError()
-      await registerUser(data)
-
-      // Navigate to KYC portal after successful registration
-      navigate("/kyc-upload", { replace: true })
+      const resp = await registerUser(data)
+      // Use the correct path to user (API returns { data: { user, token } })
+      const user = resp.data?.user
+      if (!user) {
+        console.error('Signup response missing user object', resp)
+        return
+      }
+      const redirectPath = getPostLoginRedirect(user)
+      setTimeout(() => {
+        navigate(redirectPath, { replace: true })
+      }, 100)
     } catch (error) {
       // Error is handled by the auth context
       console.error("Registration error:", error)

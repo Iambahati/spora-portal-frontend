@@ -1,5 +1,5 @@
 import React from "react"
-import { useAuthCheck } from "@/router/hooks/use-auth-check"
+import { useAuthState } from "@/lib/auth-context"
 import { NavigationHeader } from "@/components/navigation-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 
 export default function DashboardPage() {
-  const { user } = useAuthCheck()
+  const { user } = useAuthState()
   const { t } = useI18n()
 
   // Mock data - in real app this would come from API
@@ -66,19 +66,14 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
       <NavigationHeader 
-        user={{
-          name: user?.full_name || user?.name,
-          email: user?.email,
-          avatar: user?.avatar
-        }}
-        title="Investment Dashboard"
+        user={user ?? undefined}
       />
 
       <div className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-[#040956] mb-2">
-            Welcome back, {user?.name?.split(' ')[0] || 'Investor'}!
+            Welcome back, {user?.full_name?.split(' ')[0] || 'Investor'}!
           </h2>
           <p className="text-slate-600 text-lg">
             Here's an overview of your investment portfolio
