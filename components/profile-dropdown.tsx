@@ -10,13 +10,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { User, LogOut, Settings, ChevronDown, Info } from "lucide-react"
+import type { UserProfile } from '../types/api/index'
 
 interface ProfileDropdownProps {
-  user?: {
-    name?: string
-    email?: string
-    avatar?: string
-  }
+  user?: UserProfile
 }
 
 export function ProfileDropdown({ user }: ProfileDropdownProps) {
@@ -40,7 +37,7 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
           className="flex items-center gap-2 px-3 py-2 h-auto rounded-full bg-white hover:bg-gray-50 transition-colors"
         >
           <span className="text-sm font-medium text-gray-700">
-            {user?.name || "User Name"}
+            {user?.full_name || "User Name"}
           </span>
           <ChevronDown className="h-4 w-4 text-gray-500" />
         </Button>

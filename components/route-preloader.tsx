@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useCallback } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
 import { useFastRouter } from '@/hooks/use-fast-router'
 
 interface RoutePattern {
@@ -25,7 +24,7 @@ const ROUTE_PATTERNS: RoutePattern[] = [
   { from: '/kyc-portal', to: ['/', '/auth/signin'], weight: 0.6 },
 ]
 
-interface RoutePreloaderProps {
+export interface RoutePreloaderProps {
   /**
    * Enable intelligent prefetching based on user patterns
    */
@@ -45,6 +44,11 @@ interface RoutePreloaderProps {
    * Maximum number of routes to prefetch per session
    */
   maxPrefetchCount?: number
+
+  /**
+   * Routes to prefetch
+   */
+  routes: string[]
 }
 
 export default function RoutePreloader({
@@ -52,9 +56,9 @@ export default function RoutePreloader({
   enableIdlePrefetch = true,
   idleDelay = 2000,
   maxPrefetchCount = 10,
+  routes,
 }: RoutePreloaderProps) {
-  const pathname = usePathname()
-  const router = useRouter()
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
   const { prefetchBatch, prefetchCacheSize } = useFastRouter()
 
   // Intelligent prefetching based on current route

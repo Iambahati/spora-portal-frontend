@@ -1,6 +1,4 @@
 import type React from "react"
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { useI18n } from "@/lib/i18n/context"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import RoutePreloader from "@/components/route-preloader"
@@ -11,34 +9,11 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
   const { t } = useI18n()
-  const router = useRouter()
 
-  // Aggressive prefetching for instant navigation
-  useEffect(() => {
-    // Prefetch immediately
-    const criticalRoutes = ['/kyc-upload', '/auth/signin', '/auth/signup', '/auth/forgot-password']
-    criticalRoutes.forEach(route => router.prefetch(route))
-
-    // Prefetch on any user interaction
-    const prefetchOnInteraction = () => {
-      criticalRoutes.forEach(route => router.prefetch(route))
-    }
-
-    // Use capturing phase for faster response
-    document.addEventListener('mousemove', prefetchOnInteraction, { once: true, capture: true })
-    document.addEventListener('keydown', prefetchOnInteraction, { once: true, capture: true })
-    document.addEventListener('touchstart', prefetchOnInteraction, { once: true, capture: true })
-
-    return () => {
-      document.removeEventListener('mousemove', prefetchOnInteraction, { capture: true })
-      document.removeEventListener('keydown', prefetchOnInteraction, { capture: true })
-      document.removeEventListener('touchstart', prefetchOnInteraction, { capture: true })
-    }
-  }, [router])
+  // If you want to keep prefetching, use RoutePreloader or implement with React Router if needed.
 
   return (
     <div className="min-h-screen flex relative">
-      {/* Route Preloader for instant navigation */}
       <RoutePreloader routes={['/kyc-upload', '/auth/signin', '/auth/signup', '/auth/forgot-password']} />
       
       {/* Full Screen Background Image */}
@@ -97,9 +72,9 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
       </div>
 
       {/* Footer */}
-      <div className="absolute bottom-8 right-8 lg:right-1/4">
+      {/* <div className="absolute bottom-8 right-8 lg:right-1/4">
         <p className="text-slate-500 text-sm">{t("brand.copyright")}</p>
-      </div>
+      </div> */}
     </div>
   )
 }

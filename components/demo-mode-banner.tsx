@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, Info } from 'lucide-react'
 
 export function DevModeBanner() {
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
+  const isDemoMode = import.meta.env.NODE_ENV === 'true'
   
   if (!isDemoMode) return null
 
@@ -28,9 +28,9 @@ export function DevModeBanner() {
 }
 
 export function DemoModeBanner() {
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
+  const isDemoMode = import.meta.env.NODE_ENV === 'development'
   
-  if (!isDemoMode || import.meta.env.NODE_ENV === 'production') return null
+  if (!isDemoMode) return null
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-center py-2 text-sm font-medium shadow-lg">
