@@ -1,6 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { apiClient } from '@/lib/api-client'
+/**
+ * Authentication Context for Spora One Trust Investor Portal
+ * Uses the centralized AuthService with proper browser refresh persistence
+ */
+
+import React, { createContext, useContext, useState, useEffect } from 'react'
+import { authService, AuthState } from './auth'
 import type { 
   UserProfile, 
   LoginCredentials, 
@@ -8,20 +12,21 @@ import type {
   AuthResponse,
   ForgotPasswordRequest,
   ResetPasswordRequest
-} from '@/lib/api-client'
+} from '@/types/api/index'
 
 interface AuthContextType {
   // State
   user: UserProfile | null
   loading: boolean
   error: string | null
+  isAuthenticated: boolean
   
   // Authentication methods
   login: (credentials: LoginCredentials) => Promise<AuthResponse>
   register: (data: RegisterData) => Promise<AuthResponse>
   logout: () => Promise<void>
-  forgotPassword: (data: ForgotPasswordRequest) => Promise<{ message: string }>
-  resetPassword: (data: ResetPasswordRequest) => Promise<{ message: string }>
+  forgotPassword: (data: ForgotPasswordRequest) => Promise<void>
+  resetPassword: (data: ResetPasswordRequest) => Promise<void>
   
   // Profile methods
   updateProfile: (data: Partial<UserProfile>) => Promise<UserProfile>
@@ -29,7 +34,6 @@ interface AuthContextType {
   
   // Utility methods
   clearError: () => void
-  checkAuthStatus: () => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -39,245 +43,87 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [authState, setAuthState] = useState<AuthState>(authService.getState())
 
-  // Initialize authentication state
+  // Subscribe to auth service changes
   useEffect(() => {
-    initializeAuth()
+    const unsubscribe = authService.subscribe(setAuthState)
+    return unsubscribe
   }, [])
 
-  const initializeAuth = async () => {
-    try {
-      setLoading(true)
-      console.log('🔐 Auth Context: Initializing authentication...')
-      
-      // Fast development mode: Skip API calls for instant loading
-      if (import.meta.env.VITE_FAST_DEV_MODE === 'true') {
-        console.log('⚡ Fast development mode: Skipping API authentication')
-        await new Promise(resolve => setTimeout(resolve, 100))
-        setLoading(false)
-        return
-      }
-      
-      const token = localStorage.getItem('token')
-      console.log('🎫 Auth Context: Token from localStorage:', token ? 'Found' : 'None')
-      
-      if (!token) {
-        console.log('🔐 Auth Context: No token found, user not authenticated')
-        setLoading(false)
-        return
-      }
+  // Extract state values
+  const { user, loading, error, isAuthenticated } = authState
 
-      // Set token in API client
-      apiClient.setToken(token)
-      console.log('🔗 Auth Context: Token set in API client')
-      
-      // Shorter timeout for faster fallback - 1 second instead of 3
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 1000)
-      )
-      
-      try {
-        // Race between API call and timeout
-        console.log('👤 Auth Context: Fetching user profile...')
-        const userProfile = await Promise.race([
-          apiClient.getProfile(),
-          timeoutPromise
-        ]) as UserProfile
-        
-        console.log('✅ Auth Context: User profile loaded:', userProfile)
-        setUser(userProfile)
-      } catch (apiError) {
-        console.warn('API not available, using mock mode:', apiError)
-        // Use mock mode when API is not available
-        if (import.meta.env.VITE_DEMO_MODE === 'true') {
-          const mockUser: UserProfile = {
-            id: 1,
-            full_name: 'Demo User',
-            email: 'demo@example.com',
-            investment_stage: {
-              id: 1,
-              name: 'pending_kyc',
-              display_name: 'Pending KYC',
-              description: 'KYC documents pending review'
-            },
-            kyc_status: 'not_submitted',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-          setUser(mockUser)
-        } else {
-          // In production, clear invalid token
-          localStorage.removeItem('token')
-          apiClient.clearToken()
-        }
-      }
-    } catch (error) {
-      console.error('Auth initialization failed:', error)
-      // Clear invalid token
-      localStorage.removeItem('token')
-      apiClient.clearToken()
-    } finally {
-      setLoading(false)
+  // --- FIX: Ensure login/register update context state and loading/error, and use response.data.user ---
+  const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
+    setAuthState((prev) => ({ ...prev, loading: true, error: null }))
+    try {
+      const response = await authService.login(credentials)
+      const user = response.data?.user || null
+      setAuthState({
+        ...authService.getState(),
+        user,
+        isAuthenticated: !!user,
+        loading: false,
+        error: null,
+      })
+      return response
+    } catch (err: any) {
+      setAuthState((prev) => ({ ...prev, loading: false, error: err?.message || 'Login failed' }))
+      throw err
     }
   }
 
-  const login = useCallback(async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  const register = async (data: RegisterData): Promise<AuthResponse> => {
+    setAuthState((prev) => ({ ...prev, loading: true, error: null }))
     try {
-      setLoading(true)
-      setError(null)
-      
-      const response = await apiClient.login(credentials)
-      
-      // Store token and update state
-      localStorage.setItem('token', response.token)
-      apiClient.setToken(response.token)
-      setUser(response.user)
-      
+      const response = await authService.register(data)
+      const user = response.data?.user || null
+      setAuthState({
+        ...authService.getState(),
+        user,
+        isAuthenticated: !!user,
+        loading: false,
+        error: null,
+      })
       return response
-    } catch (error: any) {
-      const errorMessage = error.message || 'Login failed'
-      setError(errorMessage)
-      throw error
-    } finally {
-      setLoading(false)
+    } catch (err: any) {
+      setAuthState((prev) => ({ ...prev, loading: false, error: err?.message || 'Registration failed' }))
+      throw err
     }
-  }, [apiClient])
+  }
 
-  const register = useCallback(async (data: RegisterData): Promise<AuthResponse> => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const response = await apiClient.register(data)
-      
-      // Store token and update state
-      localStorage.setItem('token', response.token)
-      apiClient.setToken(response.token)
-      setUser(response.user)
-      
-      return response
-    } catch (error: any) {
-      const errorMessage = error.message || 'Registration failed'
-      setError(errorMessage)
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }, [apiClient])
+  const logout = async (): Promise<void> => {
+    await authService.logout()
+  }
 
-  const logout = useCallback(async (): Promise<void> => {
-    try {
-      // Call logout endpoint if user is authenticated
-      if (user) {
-        await apiClient.logout()
-      }
-    } catch (error) {
-      console.error('Logout API call failed:', error)
-      // Continue with local logout even if API call fails
-    } finally {
-      // Clear local state regardless of API call result
-      localStorage.removeItem('token')
-      apiClient.clearToken()
-      setUser(null)
-      setError(null)
-    }
-  }, [apiClient, user])
+  const forgotPassword = async (data: ForgotPasswordRequest): Promise<void> => {
+    await authService.forgotPassword(data)
+  }
 
-  const forgotPassword = useCallback(async (data: ForgotPasswordRequest): Promise<{ message: string }> => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const response = await apiClient.forgotPassword(data)
-      return response
-    } catch (error: any) {
-      const errorMessage = error.message || 'Failed to send password reset email'
-      setError(errorMessage)
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }, [apiClient])
+  const resetPassword = async (data: ResetPasswordRequest): Promise<void> => {
+    await authService.resetPassword(data)
+  }
 
-  const resetPassword = useCallback(async (data: ResetPasswordRequest): Promise<{ message: string }> => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const response = await apiClient.resetPassword(data)
-      return response
-    } catch (error: any) {
-      const errorMessage = error.message || 'Failed to reset password'
-      setError(errorMessage)
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }, [apiClient])
+  const updateProfile = async (profileData: Partial<UserProfile>): Promise<UserProfile> => {
+    const updatedUser = await authService.updateProfile(profileData)
+    return updatedUser
+  }
 
-  const updateProfile = useCallback(async (data: Partial<UserProfile>): Promise<UserProfile> => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const response = await apiClient.updateProfile(data)
-      setUser(response.user)
-      
-      return response.user
-    } catch (error: any) {
-      const errorMessage = error.message || 'Failed to update profile'
-      setError(errorMessage)
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }, [apiClient])
+  const refreshUser = async (): Promise<void> => {
+    await authService.refreshUser()
+  }
 
-  const refreshUser = useCallback(async (): Promise<void> => {
-    try {
-      if (!user) return
-      
-      const userProfile = await apiClient.getProfile()
-      setUser(userProfile)
-    } catch (error: any) {
-      console.error('Failed to refresh user profile:', error)
-      // If token is invalid, logout user
-      if (error.status === 401) {
-        await logout()
-      }
-    }
-  }, [apiClient, user, logout])
-
-  const checkAuthStatus = useCallback(async (): Promise<boolean> => {
-    try {
-      const token = localStorage.getItem('token')
-      if (!token) return false
-
-      apiClient.setToken(token)
-      const userProfile = await apiClient.getProfile()
-      setUser(userProfile)
-      return true
-    } catch (error) {
-      console.error('Auth status check failed:', error)
-      localStorage.removeItem('token')
-      apiClient.clearToken()
-      setUser(null)
-      return false
-    }
-  }, [apiClient])
-
-  const clearError = useCallback(() => {
-    setError(null)
-  }, [])
+  const clearError = (): void => {
+    authService.clearError()
+  }
 
   const contextValue: AuthContextType = {
     // State
     user,
     loading,
     error,
+    isAuthenticated,
     
     // Authentication methods
     login,
@@ -292,7 +138,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     // Utility methods
     clearError,
-    checkAuthStatus,
   }
 
   return (
@@ -313,8 +158,8 @@ export function useAuth(): AuthContextType {
 
 // Hook for authentication state only (lighter version)
 export function useAuthState() {
-  const { user, loading, error } = useAuth()
-  return { user, loading, error, isAuthenticated: !!user }
+  const { user, loading, error, isAuthenticated } = useAuth()
+  return { user, loading, error, isAuthenticated }
 }
 
 // Hook for authentication actions only
@@ -327,8 +172,7 @@ export function useAuthActions() {
     resetPassword, 
     updateProfile, 
     refreshUser, 
-    clearError,
-    checkAuthStatus 
+    clearError
   } = useAuth()
   
   return {
@@ -340,6 +184,5 @@ export function useAuthActions() {
     updateProfile,
     refreshUser,
     clearError,
-    checkAuthStatus,
   }
 }

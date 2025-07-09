@@ -1,3 +1,4 @@
+import { error } from "console"
 import { act } from "react"
 
 export const translations = {
@@ -31,6 +32,8 @@ export const translations = {
       revoking: "Revoking...",
       refreshing: "Refreshing...",
       submitting: "Submitting...",
+      goHome: "Go Home",
+      goBack: "Go Back",
     },
 
     // Navigation
@@ -95,10 +98,10 @@ export const translations = {
       securePasswordReset: "Secure password reset process",
 
       // Reset Password
-      setNewPassword: "Set new password",
-      chooseStrongPassword: "Choose a strong password for your account",
-      newPassword: "New password",
-      confirmNewPassword: "Confirm new password",
+      setNewPassword: "Reset Your Password",
+      resetPasswordDescription: " Enter your new password to secure your account",
+      newPassword: "New Password",
+      confirmNewPassword: "Confirm New password",
       enterNewPassword: "Enter new password",
       passwordRequirements: "Password requirements:",
       atLeast8Characters: "At least 8 characters long",
@@ -114,7 +117,10 @@ export const translations = {
       invalidResetLinkMessage: "This password reset link is invalid or has expired.",
       requestNewResetLink: "Request new reset link",
       continueToSignIn: "Continue to sign in",
-      accountNowSecure: "Your account is now secure",
+      passwordTooWeak: "Password is too weak. Use at least 8 characters, uppercase, lowercase, number, and symbol.",
+      passwordGood: "Good",
+      passwordStrong: "Strong",
+      passwordWeak: "Weak",
 
       // Account Activation
       activateAccount: "Activate Account",
@@ -145,6 +151,11 @@ export const translations = {
       signingIn: "Signing in...",
       creatingAccount: "Creating account...",
       sending: "Sending...",
+    },
+
+    errors: {
+      pageNotFound: "Page Not Found",
+      pageNotFoundDescription: "The page you are looking for does not exist.",
     },
 
     // Loading states
