@@ -1,0 +1,11 @@
+services:
+  portal:
+    build: .
+    image: sporaonetrust/investor-portal-frontend:latest
+    restart: unless-stopped
+    networks:
+      - nginx-proxy-network
+
+networks:
+  nginx-proxy-network:
+    external: true
