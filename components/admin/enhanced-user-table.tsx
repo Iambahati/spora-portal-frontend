@@ -1,18 +1,19 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiClient } from '@/lib/api-client';
 import type { AllUsersResponse, UserProfile, AdminUserListParams, UserStatus } from '@/types/api';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search } from 'lucide-react';
+import { ChevronDown, MoreHorizontal, Mail, User as UserIcon } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
 import { userTableColumns } from './user-table-columns';
-import { Check, ChevronDown } from 'lucide-react';
 
 interface EnhancedUserTableProps {
+  onRefresh?: (refreshFn: () => void) => void;
 }
 
 interface TableState {
@@ -61,33 +62,25 @@ const INITIAL_STATE: TableState = {
   },
 };
 
-export function EnhancedUserTable({}: EnhancedUserTableProps) {
+export function EnhancedUserTable({ onRefresh }: EnhancedUserTableProps) {
   const [state, setState] = useState<TableState>(INITIAL_STATE);
-  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState<NodeJS.Timeout | null>(null);
-  const didMountRef = useRef(false);
-  const lastFetchParamsRef = useRef<string>('');
   const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(new Set());
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     () => new Set(userTableColumns.map(col => col.id))
   );
   const [rowFilter, setRowFilter] = useState<'all' | 'selected' | 'unselected'>('all');
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileModalLoading, setProfileModalLoading] = useState(false);
+  const [profileModalError, setProfileModalError] = useState<string | null>(null);
+  const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [suspendLoading, setSuspendLoading] = useState(false);
+  const [suspendError, setSuspendError] = useState<string | null>(null);
+  const [rowActionsOpenId, setRowActionsOpenId] = useState<number | null>(null);
+  const toast = useToast();
 
-  // Debounced search function
-  const debouncedSearch = useCallback((searchTerm: string) => {
-    if (searchDebounceTimeout) {
-      clearTimeout(searchDebounceTimeout);
-    }
-    
-    const timeout = setTimeout(() => {
-      setState(prev => ({
-        ...prev,
-        filters: { ...prev.filters, search: searchTerm },
-        pagination: { ...prev.pagination, currentPage: 1 }
-      }));
-    }, 300);
-    
-    setSearchDebounceTimeout(timeout);
-  }, [searchDebounceTimeout]);
+  const MIN_ROWS = 5;
+  const PER_PAGE_OPTIONS = [5, 10, 20, 50, 100];
 
   // Memoized API parameters (remove useMemo, use plain object to avoid stale closure)
   const apiParams: AdminUserListParams = {
@@ -113,9 +106,10 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
           currentPage: response.current_page || 1,
           totalPages: response.last_page || 1,
           totalUsers: response.total || 0,
-          perPage: response.per_page || 10,
-          from: response.from || ((response.current_page - 1) * response.per_page + 1),
-          to: response.to || (response.from ? response.from + (response.data?.length || 0) - 1 : (response.current_page * response.per_page)),
+          // Preserve perPage from UI state, not backend
+          perPage: prev.pagination.perPage,
+          from: response.from || ((response.current_page - 1) * prev.pagination.perPage + 1),
+          to: response.to || (response.from ? response.from + (response.data?.length || 0) - 1 : (response.current_page * prev.pagination.perPage)),
         },
       }));
     } catch (error) {
@@ -133,45 +127,101 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.pagination.currentPage, state.pagination.perPage, state.filters, state.sorting]);
 
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchDebounceTimeout) {
-        clearTimeout(searchDebounceTimeout);
-      }
-    };
-  }, [searchDebounceTimeout]);
-
-  // Event handlers
-  const handleSearchChange = (value: string) => {
-    debouncedSearch(value);
+  // Fetch user profile for modal
+  const openProfileModal = async (userId: number) => {
+    setProfileModalOpen(true);
+    setProfileModalLoading(true);
+    setProfileModalError(null);
+    setProfileUser(null);
+    try {
+      // Fallback: fetch all users with search by id, then pick the user
+      const response = await apiClient.getAdminUsers({ search: String(userId) });
+      const user = Array.isArray(response.data) ? response.data.find(u => u.id === userId) : null;
+      if (!user) throw new Error('User not found');
+      setProfileUser(user);
+    } catch (e: any) {
+      setProfileModalError(e?.message || 'Failed to load user profile');
+    } finally {
+      setProfileModalLoading(false);
+    }
   };
 
-  const handleFilterChange = (key: keyof TableState['filters'], value: string) => {
-    setState(prev => ({
-      ...prev,
-      filters: { ...prev.filters, [key]: value },
-      pagination: { ...prev.pagination, currentPage: 1 }
-    }));
+  // Handle suspend
+  const handleSuspend = async () => {
+    if (!profileUser) return;
+    setSuspendLoading(true);
+    setSuspendError(null);
+    try {
+      await apiClient.updateAdminUserStatus(profileUser.id, 'suspended');
+      toast.toast({ title: 'User suspended', description: `${profileUser.full_name} has been suspended.` });
+      setSuspendDialogOpen(false);
+      setProfileModalOpen(false);
+      setTimeout(() => fetchUsers(), 300); // Refresh table after modal closes
+    } catch (e: any) {
+      setSuspendError(e?.message || 'Failed to suspend user');
+    } finally {
+      setSuspendLoading(false);
+    }
   };
 
+  // Sorting handler
   const handleSortChange = (column: string) => {
     setState(prev => ({
       ...prev,
       sorting: {
         column,
-        direction: prev.sorting.column === column && prev.sorting.direction === 'asc' ? 'desc' : 'asc'
+        direction: prev.sorting.column === column && prev.sorting.direction === 'asc' ? 'desc' : 'asc',
       },
-      pagination: { ...prev.pagination, currentPage: 1 }
+      pagination: { ...prev.pagination, currentPage: 1 },
     }));
   };
 
+  // Pagination handler
   const handlePageChange = (page: number) => {
     setState(prev => ({
       ...prev,
-      pagination: { ...prev.pagination, currentPage: page }
+      pagination: { ...prev.pagination, currentPage: page },
     }));
   };
+
+  // Row actions menu
+  const renderRowActions = (user: UserProfile) => (
+    <DropdownMenu open={rowActionsOpenId === user.id} onOpenChange={open => setRowActionsOpenId(open ? user.id : null)}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Row actions">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[140px] p-1">
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-8 px-2 text-sm"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(user.email);
+              toast.toast({ title: 'Email copied', description: user.email });
+            } catch (err) {
+              toast.toast({ title: 'Failed to copy email', description: 'Clipboard error', variant: 'destructive' });
+            } finally {
+              setRowActionsOpenId(null);
+            }
+          }}
+        >
+          <Mail className="h-4 w-4 mr-2" /> Copy email
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-8 px-2 text-sm"
+          onClick={async () => {
+            setRowActionsOpenId(null);
+            await openProfileModal(user.id);
+          }}
+        >
+          <UserIcon className="h-4 w-4 mr-2" /> View profile
+        </Button>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   // --- Row Selection Logic ---
   const allVisibleRows = useMemo(() => {
@@ -255,6 +305,7 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
             )}
           </TableHead>
         ))}
+        <TableHead className="w-20"></TableHead>
       </TableRow>
     </TableHeader>
   );
@@ -263,12 +314,13 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
     if (state.loading) {
       return (
         <TableBody>
-          {Array.from({ length: 5 }).map((_, index) => (
+          {Array.from({ length: MIN_ROWS }).map((_, index) => (
             <TableRow key={index}>
               <TableCell className="w-10 text-center"><Skeleton className="h-4 w-4 mx-auto" /></TableCell>
               {userTableColumns.filter(col => visibleColumns.has(col.id)).map((column) => (
                 <TableCell key={column.id}><Skeleton className="h-4 w-full max-w-[200px]" /></TableCell>
               ))}
+              <TableCell></TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -278,7 +330,7 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
       return (
         <TableBody>
           <TableRow>
-            <TableCell colSpan={visibleColumns.size + 1} className="text-center py-8">
+            <TableCell colSpan={visibleColumns.size + 2} className="text-center py-8">
               <div className="text-muted-foreground">
                 {state.filters.search || state.filters.role || state.filters.status
                   ? 'No users found matching your filters.'
@@ -289,6 +341,7 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
         </TableBody>
       );
     }
+    // Only render actual user rows, do not pad with empty rows
     return (
       <TableBody>
         {allVisibleRows.map((user) => (
@@ -340,6 +393,7 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
                 </TableCell>
               );
             })}
+            <TableCell>{renderRowActions(user)}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -360,9 +414,10 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
     const totalUsers = typeof pagination?.totalUsers === 'number' ? pagination.totalUsers : data.length;
     if (totalUsers === 0) return null;
 
-    // Always use backend-provided from/to if present, else fallback
     let from = typeof pagination.from === 'number' && pagination.from > 0 ? pagination.from : ((pagination.currentPage - 1) * pagination.perPage + 1);
     let to = typeof pagination.to === 'number' && pagination.to >= from ? pagination.to : (from + data.length - 1);
+    // Clamp to totalUsers
+    if (to > totalUsers) to = totalUsers;
     if (from > to) return null;
 
     return (
@@ -398,7 +453,7 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
               }));
             }}
           >
-            {[5, 10, 20, 50, 100].map(opt => (
+            {PER_PAGE_OPTIONS.map(opt => (
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
@@ -422,6 +477,20 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
       </div>
     );
   }
+
+  // Expose a refresh function
+  const refresh = useCallback(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Call onRefresh with refresh function on mount
+  useEffect(() => {
+    if (onRefresh) {
+      onRefresh(refresh);
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- UI: Filter Toggle, Column Toggle, and Summary ---
   return (
@@ -474,6 +543,69 @@ export function EnhancedUserTable({}: EnhancedUserTableProps) {
         </Table>
         {renderPagination()}
       </div>
+      {/* --- Profile Modal (Sheet/Dialog) --- */}
+      {profileModalOpen && (
+        <Sheet open={profileModalOpen} onOpenChange={setProfileModalOpen}>
+          <SheetContent side="right" className="max-w-md w-full">
+            <SheetHeader>
+              <SheetTitle>View Profile</SheetTitle>
+              <SheetDescription>
+                {profileModalLoading && <Skeleton className="h-6 w-32" />}
+                {profileModalError && <Alert className="border-red-200 bg-red-50"><AlertDescription className="text-red-800">{profileModalError}</AlertDescription></Alert>}
+              </SheetDescription>
+            </SheetHeader>
+            {profileUser && !profileModalLoading && !profileModalError && (
+              <div className="space-y-4 mt-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center text-xl font-bold">
+                    {profileUser.photo_url?.startsWith('http') ? (
+                      <img src={profileUser.photo_url} alt="Profile" className="h-12 w-12 rounded-full object-cover" />
+                    ) : (
+                      <span>{profileUser.photo_url}</span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-lg">{profileUser.full_name}</div>
+                    <div className="text-sm text-gray-500">{profileUser.email}</div>
+                    <div className="text-xs mt-1">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${profileUser.status === 'active' ? 'bg-green-100 text-green-800' : profileUser.status === 'suspended' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-500'}`}>{profileUser.status}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t pt-4 space-y-2">
+                  <div><span className="font-medium">Role:</span> {profileUser.role}</div>
+                  <div><span className="font-medium">Investment Stage:</span> {typeof profileUser.investment_stage === 'string' ? profileUser.investment_stage : (profileUser.investment_stage?.name || 'N/A')}</div>
+                  <div><span className="font-medium">Created:</span> {profileUser.created_at}</div>
+                    <div><span className="font-medium">Last Login:</span> {profileUser.last_logged_in_at ? new Date(profileUser.last_logged_in_at).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Never'}</div>
+                </div>
+              </div>
+            )}
+            <SheetFooter className="mt-8">
+              <Button
+                variant="destructive"
+                disabled={profileUser?.status === 'suspended' || profileModalLoading}
+                onClick={() => setSuspendDialogOpen(true)}
+                className="w-full"
+              >
+                Suspend Account
+              </Button>
+            </SheetFooter>
+            {/* Suspend Confirmation Dialog */}
+            <AlertDialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure you want to suspend this account?</AlertDialogTitle>
+                </AlertDialogHeader>
+                {suspendError && <Alert className="border-red-200 bg-red-50"><AlertDescription className="text-red-800">{suspendError}</AlertDescription></Alert>}
+                <AlertDialogFooter>
+                  <Button variant="outline" onClick={() => setSuspendDialogOpen(false)} disabled={suspendLoading}>Cancel</Button>
+                  <Button variant="destructive" onClick={handleSuspend} disabled={suspendLoading}>{suspendLoading ? 'Suspending...' : 'Suspend'}</Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }

@@ -96,7 +96,7 @@ export const userTableColumns: TableColumn<UserProfile>[] = [
     id: "created_at",
     accessorKey: "created_at",
     enableSorting: false,
-    header: "Created",
+    header: "Joined",
     cell: ({ row }) => {
       const date = new Date(row.original.created_at);
       // Format: 7 July, 2025
@@ -107,34 +107,6 @@ export const userTableColumns: TableColumn<UserProfile>[] = [
         <div className="text-muted-foreground">
           {`${day} ${month}, ${year}`}
         </div>
-      );
-    },
-  },
-  {
-    id: "actions",
-    header: "Actions",
-    cell: ({ row }) => {
-      const user = row.original;
-      
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.email)}>
-              Copy email
-            </DropdownMenuItem>
-            <DropdownMenuItem>View profile</DropdownMenuItem>
-            <DropdownMenuItem>Edit user</DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600">
-              {user.status === 'suspended' ? 'Activate' : 'Suspend'} user
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       );
     },
   },
