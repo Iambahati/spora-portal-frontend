@@ -488,9 +488,6 @@ export const translations = {
       quickLinks: {
         title: "Quick Links",
         aboutUs: "About Us",
-        dashboard: "Dashboard",
-        kycPortal: "KYC Portal",
-        settings: "Settings"
       },
       legal: {
         title: "Legal & Support",
