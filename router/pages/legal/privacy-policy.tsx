@@ -61,8 +61,9 @@ export default function PrivacyPolicyContent() {
                 <li>• Full name</li>
                 <li>• ID number</li>
                 <li>• Email address</li>
-                <li>• Date of birth</li>
                 <li>• Nationality</li>
+                <li>• ID/Driver/Passport No.</li>
+                <li>• Passport-sized photo</li>
               </ul>
             </CardContent>
           </Card>
@@ -207,7 +208,7 @@ export default function PrivacyPolicyContent() {
 
             <div className="flex items-center gap-2 text-sm">
               <Mail className="h-4 w-4 text-primary" />
-              <span>For data rights requests, please <strong>contact info@sporaonetrust.com</strong></span>
+              <span>For data rights requests, please  contact <strong>info@sporaonetrust.com</strong></span>
             </div>
           </CardContent>
         </Card>
@@ -277,8 +278,6 @@ export default function PrivacyPolicyContent() {
           <div className="grid gap-2 md:grid-cols-2 text-sm">
             <div><strong>Email:</strong> info@sporaonetrust.com</div>
             <div><strong>Phone:</strong> +254-726857081</div>
-            <div><strong>Address:</strong> Nairobi, Kenya</div>
-            <div><strong>Registration:</strong> TPS-VMCRYQ</div>
           </div>
         </CardContent>
       </Card>

@@ -60,15 +60,6 @@ export default function LegalDisclosureContent() {
           <CardContent className="pt-6">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <FileText className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Company Registration</p>
-                    <p className="font-semibold">TPS-VMCRYQ</p>
-                  </div>
-                </div>
 
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg">
@@ -108,7 +99,7 @@ export default function LegalDisclosureContent() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                {/* <div className="flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg">
                     <MapPin className="h-4 w-4 text-primary" />
                   </div>
@@ -116,7 +107,7 @@ export default function LegalDisclosureContent() {
                     <p className="text-sm text-muted-foreground">Principal Office</p>
                     <p className="font-semibold">Nairobi, Kenya</p>
                   </div>
-                </div>
+                </div> */}
 
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg">
@@ -289,7 +280,6 @@ export default function LegalDisclosureContent() {
           <div className="grid gap-2 md:grid-cols-2 text-sm">
             <div><strong>Email:</strong> info@sporaonetrust.com</div>
             <div><strong>Phone:</strong> +254-726857081</div>
-            <div><strong>Registration:</strong> TPS-VMCRYQ</div>
             <div><strong>Jurisdiction:</strong> Kenya</div>
           </div>
           

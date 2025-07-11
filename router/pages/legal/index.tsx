@@ -95,7 +95,7 @@ const { t } = useI18n()
               </div>
 
               {/* Important Notice in Sidebar */}
-              <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              {/* <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
                   <div>
@@ -104,21 +104,20 @@ const { t } = useI18n()
                       These legal documents are governed by the laws of Kenya. Contact our legal team for questions.
                     </p>
                     <div className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
-                      <div><strong>Email:</strong> info@sporaonetrust.com</div>
+                      <div><strong>Email:</strong> legal@sporaonetrust.com</div>
                       <div><strong>Phone:</strong> +254-726857081</div>
-                      <div><strong>Reg:</strong> TPS-VMCRYQ</div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             {/* Main Content */}
-            <div className="flex-1">
+            <div className="flex-1 mb-8">
               <Card className="border-0 shadow-lg">
                 <div className="p-0">
                   {activeTab === 'privacy' && (
-                    <ScrollArea className="h-[70vh]">
+                    <ScrollArea className="h-[85vh]">
                       <div className="p-8">
                         <PrivacyPolicyContent />
                       </div>
@@ -126,7 +125,7 @@ const { t } = useI18n()
                   )}
 
                   {activeTab === 'disclosure' && (
-                    <ScrollArea className="h-[70vh]">
+                    <ScrollArea className="h-[85vh]">
                       <div className="p-8">
                         <LegalDisclosureContent />
                       </div>
@@ -134,7 +133,7 @@ const { t } = useI18n()
                   )}
 
                   {activeTab === 'disclaimer' && (
-                    <ScrollArea className="h-[70vh]">
+                    <ScrollArea className="h-[85vh]">
                       <div className="p-8">
                         <DisclaimerContent />
                       </div>

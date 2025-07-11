@@ -322,7 +322,6 @@ export default function DisclaimerContent() {
           <div className="grid gap-2 md:grid-cols-2 text-sm">
             <div><strong>Email:</strong> info@sporaonetrust.com</div>
             <div><strong>Phone:</strong> +254-726857081</div>
-            <div><strong>Registration:</strong> TPS-VMCRYQ</div>
             <div><strong>Address:</strong> Nairobi, Kenya</div>
           </div>
           
