@@ -11,6 +11,7 @@ import type {
   UserProfile
 } from '@/lib/api-client'
 import { getPostLoginRedirect } from '@/lib/auth-utils'
+import { useAuthActions } from '@/lib/auth-context'
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +25,7 @@ export default function ActivatePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { t } = useI18n()
+  const { refreshUser } = useAuthActions()
 
   const [email, setEmail] = useState<string>("")
   const [token, setToken] = useState<string>("")
@@ -168,12 +170,14 @@ export default function ActivatePage() {
         // Store token for immediate login
         if (response.data.token) {
           localStorage.setItem('token', response.data.token)
+          // Refresh auth context so user is signed in
+          await refreshUser()
         }
         // Use role/state-aware redirect after short delay
         const redirectPath = getPostLoginRedirect(user)
         setTimeout(() => {
           navigate(redirectPath, { replace: true })
-        }, 2000)
+        }, 5000)
       } else {
         form.setError("root", { message: response.message })
       }
@@ -240,7 +244,7 @@ export default function ActivatePage() {
           </CardHeader>
           <CardContent className="px-12 pb-12 text-center">
             <p className="text-gray-600 mb-6">{t("auth.accountReadyToUse")}</p>
-            <p className="text-sm text-gray-500">Redirecting to sign in...</p>
+            <p className="text-sm text-gray-500">Signing you in...</p>
           </CardContent>
         </Card>
       )

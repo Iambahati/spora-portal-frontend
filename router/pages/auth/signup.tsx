@@ -23,6 +23,7 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [passwordStrength, setPasswordStrength] = useState(0)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -52,19 +53,15 @@ export default function SignUpPage() {
   const onSubmit = async (data: RegisterFormData) => {
     try {
       clearError()
+      setSuccessMessage(null)
       const resp = await registerUser(data)
-      // Use the correct path to user (API returns { data: { user, token } })
-      const user = resp.data?.user
-      if (!user) {
-        console.error('Signup response missing user object', resp)
-        return
-      }
-      const redirectPath = getPostLoginRedirect(user)
-      setTimeout(() => {
-        navigate(redirectPath, { replace: true })
-      }, 100)
+      setSuccessMessage(
+        resp.message ||
+        "Registration successful. Please check your email to activate your account."
+      )
+      // Do not redirect or navigate after signup
     } catch (error) {
-      // Error is handled by the auth context
+      setSuccessMessage(null)
       console.error("Registration error:", error)
     }
   }
@@ -92,265 +89,264 @@ export default function SignUpPage() {
           </CardHeader>
 
           <CardContent className="space-y-8 px-12 pb-12">
+            {/* Success message */}
+            {successMessage && (
+              <Alert variant="success" className="animate-in fade-in-50 border-green-200 bg-green-50">
+                <AlertCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-sm font-medium whitespace-pre-line">{successMessage}</AlertDescription>
+              </Alert>
+            )}
             {/* Error alerts */}
             {error && (
               <Alert variant="destructive" className="animate-in fade-in-50 border-red-200 bg-red-50">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm font-medium">{error}</AlertDescription>
+                <AlertDescription className="text-sm font-medium whitespace-pre-line">{error}</AlertDescription>
               </Alert>
             )}
-
+            {/* Expanded validation errors */}
             {form.formState.errors.root && (
               <Alert variant="destructive" className="animate-in fade-in-50 border-red-200 bg-red-50">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm font-medium">{form.formState.errors.root.message}</AlertDescription>
+                <div className="space-y-1">
+                  <AlertDescription className="text-sm font-medium whitespace-pre-line">
+                    {form.formState.errors.root.message}
+                  </AlertDescription>
+                  {/* Show all API validation errors (flattened) if present */}
+                  {form.formState.errors.root.errors && (
+                    <div className="mt-2 space-y-1">
+                      {Object.entries(form.formState.errors.root.errors).map(([field, messages]) =>
+                        Array.isArray(messages)
+                          ? messages.map((msg, i) => (
+                              <div key={field + i} className="text-xs text-red-700 pl-1">{msg}</div>
+                            ))
+                          : null
+                      )}
+                    </div>
+                  )}
+                  {form.formState.errors.root.message === "The provided data is invalid." && (
+                    <div className="text-xs text-gray-700 mt-1">
+                      Please ensure your email is unique and all fields are filled correctly. Check the errors above for details.
+                    </div>
+                  )}
+                </div>
               </Alert>
             )}
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Full Name input */}
-              <div className="space-y-3">
-                <Label
-                  htmlFor="full_name"
-                >
-                  <User style={{ height: "0.875rem", width: "0.875rem", color: "#6b7280" }} />
-                  {t("common.fullName")}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="full_name"
-                    type="text"
-                    placeholder="Enter your full name"
-                    autoComplete="name"
-                    {...form.register("full_name")}
-                  />
-                </div>
-                {form.formState.errors.full_name && (
-                  <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
-                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                    <span>{form.formState.errors.full_name.message}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Email input */}
-              <div className="space-y-3">
-                <Label
-                  htmlFor="email"
-                  className="text-sm font-semibold flex items-center gap-2"
-                >
-                  <Mail className="h-4 w-4" style={{ color: "#6b7280" }} />
-                  {t("common.email")}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    className="h-14 text-base border-gray-200 rounded-xl focus:border-transparent focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
-                    autoComplete="email"
-                    {...form.register("email")}
-                  />
-                </div>
-                {form.formState.errors.email && (
-                  <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
-                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                    <span>{form.formState.errors.email.message}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Password input */}
-              <div className="space-y-3">
-                <Label
-                  htmlFor="password"
-                  className="text-sm font-semibold flex items-center gap-2"
-                  style={{ color: "#6b7280" }}
-                >
-                  <Lock className="h-4 w-4" style={{ color: "#6b7280" }} />
-                  {t("common.password")}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
-                    className="h-14 text-base pr-12 border-gray-200 rounded-xl focus:border-transparent focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
-                    autoComplete="new-password"
-                    {...form.register("password")}
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: "absolute",
-                      right: "0",
-                      top: "0",
-                      height: "100%",
-                      padding: "0 0.75rem",
-                      backgroundColor: "transparent",
-                      border: "none",
-                      color: "#6b7280",
-                      cursor: "pointer",
-                      transition: "colors 0.2s",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#eb6e03")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7280")}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+            {/* Hide form after success */}
+            {!successMessage && (
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Full Name input */}
+                <div className="space-y-3">
+                  <Label
+                    htmlFor="full_name"
                   >
-                    {showPassword ? (
-                      <EyeOff style={{ height: "1rem", width: "1rem" }} />
-                    ) : (
-                      <Eye style={{ height: "1rem", width: "1rem" }} />
-                    )}
-                  </Button>
-                </div>
-
-                {/* Password strength indicator */}
-                {watchPassword && (
-                  <div className="space-y-1.5 animate-in fade-in-50">
-                    <div className="flex space-x-1">
-                      {[1, 2, 3, 4, 5].map((level) => (
-                        <div
-                          key={level}
-                          className={`h-1.5 flex-1 rounded-full transition-colors ${level <= passwordStrength
-                            ? passwordStrength <= 2
-                              ? "bg-red-400"
-                              : passwordStrength <= 3
-                                ? "bg-yellow-400"
-                                : "bg-green-400"
-                            : "bg-gray-200"
-                            }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-600">
-                      {passwordStrength === 0 && "Password strength: Very weak"}
-                      {passwordStrength === 1 && "Password strength: Weak"}
-                      {passwordStrength === 2 && "Password strength: Fair"}
-                      {passwordStrength === 3 && "Password strength: Good"}
-                      {passwordStrength === 4 && "Password strength: Strong"}
-                      {passwordStrength === 5 && "Password strength: Very strong"}
-                    </p>
+                    <User style={{ height: "0.875rem", width: "0.875rem", color: "#6b7280" }} />
+                    {t("common.fullName")}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="full_name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      autoComplete="name"
+                      {...form.register("full_name")}
+                    />
                   </div>
-                )}
-
-                {form.formState.errors.password && (
-                  <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
-                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                    <span>{form.formState.errors.password.message}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Confirm Password input */}
-              <div className="space-y-3">
-                <Label
-                  htmlFor="password_confirmation"
-                  className="text-sm font-semibold flex items-center gap-2"
-                  style={{ color: "#6b7280" }}
-                >
-                  <Lock className="h-4 w-4" style={{ color: "#6b7280" }} />
-                  {t("common.confirmPassword")}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password_confirmation"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    className="h-14 text-base pr-12 border-gray-200 rounded-xl focus:border-transparent focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
-                    autoComplete="new-password"
-                    {...form.register("password_confirmation")}
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={{
-                      position: "absolute",
-                      right: "0",
-                      top: "0",
-                      height: "100%",
-                      padding: "0 0.75rem",
-                      backgroundColor: "transparent",
-                      border: "none",
-                      color: "#6b7280",
-                      cursor: "pointer",
-                      transition: "colors 0.2s",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#eb6e03")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7280")}
-                    aria-label={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff style={{ height: "1rem", width: "1rem" }} />
-                    ) : (
-                      <Eye style={{ height: "1rem", width: "1rem" }} />
-                    )}
-                  </Button>
+                  {form.formState.errors.full_name && (
+                    <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      <span>{form.formState.errors.full_name.message}</span>
+                    </p>
+                  )}
                 </div>
-                {form.formState.errors.password_confirmation && (
-                  <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
-                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                    <span>{form.formState.errors.password_confirmation.message}</span>
-                  </p>
-                )}
-              </div>
 
-              {/* Submit button */}
-              <Button
-                type="submit"
-                className="w-full h-14 text-lg font-semibold rounded-xl transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5"
-                style={{
-                  backgroundColor: "#eb6e03",
-                  borderColor: "#eb6e03"
-                }}
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    {t("loading.creatingAccount")}
-                  </>
-                ) : (
-                  <>
-                    {t("auth.signUp")}
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </>
-                )}
-              </Button>
-            </form>
+                {/* Email input */}
+                <div className="space-y-3">
+                  <Label
+                    htmlFor="email"
+                    className="text-sm font-semibold flex items-center gap-2"
+                  >
+                    <Mail className="h-4 w-4" style={{ color: "#6b7280" }} />
+                    {t("common.email")}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      className="h-14 text-base border-gray-200 rounded-xl focus:border-transparent focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
+                      autoComplete="email"
+                      {...form.register("email")}
+                    />
+                  </div>
+                  {form.formState.errors.email && (
+                    <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      <span>{form.formState.errors.email.message}</span>
+                    </p>
+                  )}
+                </div>
 
-            {/* Sign in link */}
-            <div
-              style={{
-                textAlign: "center",
-                paddingTop: "1rem",
-                borderTop: "1px solid rgba(229, 231, 235, 0.5)",
-              }}
-            >
-              <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                 {t("auth.alreadyHaveAccount")}{" "}
-                <Link
-                  to="/auth/signin"
+                {/* Password input */}
+                <div className="space-y-3">
+                  <Label
+                    htmlFor="password"
+                    className="text-sm font-semibold flex items-center gap-2"
+                    style={{ color: "#6b7280" }}
+                  >
+                    <Lock className="h-4 w-4" style={{ color: "#6b7280" }} />
+                    {t("common.password")}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a password"
+                      className="h-14 text-base pr-12 border-gray-200 rounded-xl focus:border-transparent focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
+                      autoComplete="new-password"
+                      {...form.register("password")}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: "absolute",
+                        right: "0",
+                        top: "0",
+                        height: "100%",
+                        padding: "0 0.75rem",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        color: "#6b7280",
+                        cursor: "pointer",
+                        transition: "colors 0.2s",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#eb6e03")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7280")}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <EyeOff style={{ height: "1rem", width: "1rem" }} />
+                      ) : (
+                        <Eye style={{ height: "1rem", width: "1rem" }} />
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Password strength indicator */}
+                  {watchPassword && (
+                    <div className="space-y-1.5 animate-in fade-in-50">
+                      <div className="flex space-x-1">
+                        {[1, 2, 3, 4, 5].map((level) => (
+                          <div
+                            key={level}
+                            className={`h-1.5 flex-1 rounded-full transition-colors ${level <= passwordStrength
+                              ? passwordStrength <= 2
+                                ? "bg-red-400"
+                                : passwordStrength <= 3
+                                  ? "bg-yellow-400"
+                                  : "bg-green-400"
+                              : "bg-gray-200"
+                              }`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        {passwordStrength === 0 && "Password strength: Very weak"}
+                        {passwordStrength === 1 && "Password strength: Weak"}
+                        {passwordStrength === 2 && "Password strength: Fair"}
+                        {passwordStrength === 3 && "Password strength: Good"}
+                        {passwordStrength === 4 && "Password strength: Strong"}
+                        {passwordStrength === 5 && "Password strength: Very strong"}
+                      </p>
+                    </div>
+                  )}
+
+                  {form.formState.errors.password && (
+                    <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      <span>{form.formState.errors.password.message}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Confirm Password input */}
+                <div className="space-y-3">
+                  <Label
+                    htmlFor="password_confirmation"
+                    className="text-sm font-semibold flex items-center gap-2"
+                    style={{ color: "#6b7280" }}
+                  >
+                    <Lock className="h-4 w-4" style={{ color: "#6b7280" }} />
+                    {t("common.confirmPassword")}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password_confirmation"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm your password"
+                      className="h-14 text-base pr-12 border-gray-200 rounded-xl focus:border-transparent focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
+                      autoComplete="new-password"
+                      {...form.register("password_confirmation")}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={{
+                        position: "absolute",
+                        right: "0",
+                        top: "0",
+                        height: "100%",
+                        padding: "0 0.75rem",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        color: "#6b7280",
+                        cursor: "pointer",
+                        transition: "colors 0.2s",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#eb6e03")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7280")}
+                      aria-label={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff style={{ height: "1rem", width: "1rem" }} />
+                      ) : (
+                        <Eye style={{ height: "1rem", width: "1rem" }} />
+                      )}
+                    </Button>
+                  </div>
+                  {form.formState.errors.password_confirmation && (
+                    <p className="text-sm text-red-500 flex items-center gap-1 animate-in slide-in-from-left-2">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      <span>{form.formState.errors.password_confirmation.message}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Submit button */}
+                <Button
+                  type="submit"
+                  className="w-full h-14 text-lg font-semibold rounded-xl transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5"
                   style={{
-                    color: "#eb6e03",
-                    fontWeight: "500",
-                    textDecoration: "none",
-                    transition: "colors 0.2s",
+                    backgroundColor: "#eb6e03",
+                    borderColor: "#eb6e03"
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = "#d97706"
-                    e.currentTarget.style.textDecoration = "underline"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = "#eb6e03"
-                    e.currentTarget.style.textDecoration = "none"
-                  }}
+                  disabled={loading}
                 >
-                  {t("auth.signIn")}
-                </Link>
-              </p>
-            </div>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      {t("loading.creatingAccount")}
+                    </>
+                  ) : (
+                    <>
+                      {t("auth.signUp")}
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>

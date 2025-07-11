@@ -142,14 +142,7 @@ export default function NDAAcceptancePage() {
   const STATUS_KEY = `nda_status_${getUserKey()}`
 
   // Helper to get a display name for the user
-  const getUserDisplayName = () => {
-    if (user && typeof user === 'object') {
-      if ('full_name' in user && user.full_name) return user.full_name
-      if ('name' in user && user.name) return user.name
-      if ('email' in user && user.email) return user.email
-    }
-    return 'this user'
-  }
+ 
 
   // Load active NDA and check user status
   useEffect(() => {
@@ -529,7 +522,7 @@ export default function NDAAcceptancePage() {
                       }
                     />
                     <label htmlFor="identity" className="text-sm leading-relaxed cursor-pointer">
-                      I confirm that I am {getUserDisplayName()} and I have the authority to enter into this agreement on my behalf.
+                        {`I confirm that I am ${user?.full_name}, and that I have the authority to enter into this agreement on my own behalf.`}
                     </label>
                   </div>
 
@@ -608,9 +601,18 @@ export default function NDAAcceptancePage() {
               )}
 
               {/* Help Text */}
-              <div className="text-center text-sm text-gray-500 pt-4">
-                Have questions about this agreement? Contact our support team for assistance.
-              </div>
+                <div className="text-center text-sm text-gray-500 pt-4">
+                Have questions about this agreement? Contact our  
+                <a 
+                  href="mailto:info@sporaonetrust.com?subject=Inquiry%20Regarding%20NDA%20Agreement" 
+                  className="font-semibold text-primary hover:text-primary/80 transition-colors px-1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  onboarding team
+                </a> 
+                for assistance.
+                </div>
             </CardContent>
           </Card>
         </div>
