@@ -74,17 +74,6 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
           </Link>
         </DropdownMenuItem>
         
-        {/* Settings option */}
-        <DropdownMenuItem asChild className="p-0">
-          <Link
-            to="/settings"
-            className="flex items-center gap-3 p-4 w-full cursor-pointer hover:bg-gray-50 transition-colors"
-          >
-            <Settings className="h-5 w-5 text-gray-500" />
-            <span className="text-base text-gray-900">Settings</span>
-          </Link>
-        </DropdownMenuItem>
-        
         {/* Logout option */}
         <DropdownMenuItem asChild className="p-0">
           <button

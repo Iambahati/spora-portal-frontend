@@ -71,30 +71,9 @@ const AppFooter: React.FC = () => {
                     {t("footer.quickLinks.aboutUs")}
                   </Link>
                 </li>
-                <li>
-                  <Link 
-                    to="/dashboard" 
-                    className="text-slate-300 hover:text-white transition-colors"
-                  >
-                    {t("footer.quickLinks.dashboard")}
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    to="/kyc-portal" 
-                    className="text-slate-300 hover:text-white transition-colors"
-                  >
-                    {t("footer.quickLinks.kycPortal")}
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    to="/settings" 
-                    className="text-slate-300 hover:text-white transition-colors"
-                  >
-                    {t("footer.quickLinks.settings")}
-                  </Link>
-                </li>
+               
+                
+              
               </ul>
             </div>
 

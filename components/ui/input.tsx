@@ -26,6 +26,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
         style={{
           height: "2.75rem",
           borderColor: "#e5e7eb",
+          borderWidth: "1.5px",
           backgroundColor: "white",
           transition: "border-color 0.2s, box-shadow 0.2s",
           ...style
