@@ -1,4 +1,3 @@
-
 /**
  * Authentication Service for Spora One Trust Investor Portal
  * Handles authentication state management with browser refresh persistence
@@ -375,18 +374,18 @@ class AuthService {
    */
   async refreshUser(): Promise<void> {
     try {
-      if (!this.state.isAuthenticated) return
-      
+      // Always attempt to refresh if a token is present, even if not authenticated
+      const token = localStorage.getItem('token')
+      if (!token) return
+      apiClient.setToken(token)
       const response = await apiClient.getProfile()
-      
       if ((response as any)?.success && (response as any)?.data) {
         const user = (response as any).data
-        
         this.updateState({
           user,
+          isAuthenticated: true,
           error: null
         })
-        
         console.log('✅ AuthService: User profile refreshed')
       } else {
         console.error('❌ AuthService: Invalid refresh response')
@@ -394,12 +393,10 @@ class AuthService {
       }
     } catch (error: any) {
       console.error('❌ AuthService: Failed to refresh user:', error)
-      
       // If token is invalid, logout user
       if (error.status === 401) {
         await this.logout()
       }
-      
       throw error
     }
   }

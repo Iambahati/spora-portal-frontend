@@ -6,7 +6,7 @@
 // Browser detection utilities
 function getBrowserName(): string {
   if (typeof window === 'undefined') return 'Unknown'
-  
+
   const userAgent = window.navigator.userAgent
   if (userAgent.includes('Chrome')) return 'Chrome'
   if (userAgent.includes('Firefox')) return 'Firefox'
@@ -17,7 +17,7 @@ function getBrowserName(): string {
 
 function getOSName(): string {
   if (typeof window === 'undefined') return 'Unknown'
-  
+
   const userAgent = window.navigator.userAgent
   if (userAgent.includes('Windows')) return 'Windows'
   if (userAgent.includes('Mac')) return 'macOS'
@@ -151,7 +151,7 @@ export class APIClient {
 
     // Make new request
     const promise = this.request<T>(endpoint, options)
-    
+
     // Cache the promise
     this.requestCache.set(cacheKey, {
       promise,
@@ -178,7 +178,7 @@ export class APIClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
-    
+
     const headers: Record<string, string> = {
       'Accept': 'application/json',
       'X-Device-Type': 'web',
@@ -216,23 +216,25 @@ export class APIClient {
     }
 
     console.log(`📡 API Request: ${options.method || 'GET'} ${url}`)
-    
+
     const response = await fetch(url, {
       ...options,
       headers,
     })
-    
+
     const contentType = response.headers.get('Content-Type') || ''
-    
+
     // Handle authentication errors
     if (response.status === 401) {
-      console.error(`🚫 API: Authentication failed for ${endpoint}`)
       // Clear invalid token
       this.clearToken()
-      throw new APIError('Authentication is required', response.status, { message: 'Authentication is required' })
+      const errorMessage = contentType.includes('application/json')
+        ? (await response.json()).message
+        : 'Authentication is required';
+      throw new APIError(errorMessage, response.status, { message: errorMessage });
     }
-    
-    // Defensive: If not ok, try to parse error JSON, else fallback
+
+    // If not ok, try to parse error JSON, else fallback
     if (!response.ok) {
       let error: ErrorResponse
       if (contentType.includes('application/json')) {
@@ -244,16 +246,36 @@ export class APIClient {
       } else {
         error = { message: `HTTP ${response.status}: ${response.statusText} (Non-JSON error)` }
       }
+
+      // Flatten error arrays for all non-401 errors 
+      if (error && typeof error === 'object') {
+        let flatErrors: Record<string, string> = {}
+        if (error.errors && typeof error.errors === 'object') {
+          for (const [field, value] of Object.entries(error.errors)) {
+            if (Array.isArray(value)) {
+              flatErrors[field] = value.join(' ')
+            } else {
+              flatErrors[field] = String(value)
+            }
+          }
+          ; (error as any).flatErrors = flatErrors
+          if (response.status === 422) {
+            error.message = Object.values(flatErrors).join(' ').trim()
+          }
+        }
+        if (Array.isArray(error.message)) {
+          error.message = error.message.join(' ')
+        }
+      }
       throw new APIError(error.message, response.status, error)
     }
-    
+
     // Defensive: Only parse as JSON if Content-Type is correct
     if (!contentType.includes('application/json')) {
       throw new APIError('Server returned a non-JSON response. Please try again later or contact support.', response.status, { message: 'Non-JSON response' })
     }
-    
+
     const result = await response.json()
-    console.log(`✅ API Response: ${endpoint}`, result)
     return result
   }
 
@@ -440,7 +462,7 @@ export class APIClient {
 
   async getAdminUsers(params: AdminUserListParams): Promise<AllUsersResponse> {
     const query = new URLSearchParams()
-    
+
     // Add parameters only if they have values
     if (params.search && params.search.trim()) query.append('search', params.search.trim())
     if (params.role && params.role.trim()) query.append('role', params.role)
@@ -449,10 +471,10 @@ export class APIClient {
     if (params.direction) query.append('direction', params.direction)
     if (params.page) query.append('page', params.page.toString())
     if (params.per_page) query.append('per_page', params.per_page.toString())
-    
+
     const queryString = query.toString()
     const endpoint = queryString ? `/admin/users?${queryString}` : '/admin/users'
-    
+
     console.log(`🔍 Admin Users Query: ${endpoint}`)
     return this.get<AllUsersResponse>(endpoint)
   }
@@ -512,6 +534,13 @@ export class APIClient {
   async getAdminStats(): Promise<AdminStatsResponse> {
     return this.get<AdminStatsResponse>('/admin/stats');
   }
+
+  /**
+   * Admin: Get a single user profile
+   */
+  async getAdminUser(id: number): Promise<{ success: boolean; message: string; data: UserProfile }> {
+    return this.get<{ success: boolean; message: string; data: UserProfile }>(`/admin/users/${id}`);
+  }
 }
 
 // Import mock client for demo mode
@@ -520,7 +549,7 @@ import { mockApiClient } from './mock-api-client'
 // Create a singleton instance
 const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
 
-export const apiClient = isDemoMode 
+export const apiClient = isDemoMode
   ? mockApiClient
   : new APIClient(import.meta.env.VITE_API_URL || '/api')
 

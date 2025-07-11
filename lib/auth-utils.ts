@@ -8,9 +8,6 @@ import type { UserProfile } from './api-client'
  * Determines the appropriate redirect path based on user role and state
  */
 export function getPostLoginRedirect(user: UserProfile): string {
-  // Debug user object to see what properties are available
-  console.log('User object for redirect determination:', user)
-  
   // Handle activation state first
   if (user.activation_stage && 
       (user.activation_stage.stage !== 'completed' || user.activation_stage.requires_action)) {
