@@ -1,0 +1,91 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: 
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment:
+          name: production
+          url: https://demo.sporaonetrust.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for DEPLOY_KEY presence
+        run: |
+          if [ -z "${{ secrets.DEPLOY_KEY }}" ]; then
+            echo "❌ DEPLOY_KEY secret is missing!"
+            exit 1
+          fi
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Test SSH connection
+        run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} "echo Connected!"
+
+      - name: Deploy to server
+        run: |
+          ssh -T -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            echo "🚀 Starting deployment..."
+
+            # Create projects directory if it doesn't exist
+            mkdir -p ~/Spora-One-Projects/SporaOneTrust-InvestorPortal/frontend-app
+
+            # Navigate to projects directory
+            cd ~/Spora-One-Projects/SporaOneTrust-InvestorPortal/frontend-app
+
+            # Stop existing containers if running
+            if docker compose ps | grep -q "Up"; then
+                    echo "🔍 Found running containers. Attempting to stop them..."
+                    if docker compose down; then
+                    echo "🛑 Containers stopped successfully."
+                    else
+                    echo "⚠️ Failed to stop containers. Proceeding with caution..."
+                    fi
+                  else
+                    echo "✅ No running containers found. Skipping stop step."
+                  fi
+
+            # Remove existing directory and clone fresh
+            echo "📂 Cloning repository..."
+            rm -rf ./*
+            git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git .
+
+            # Wait for services to be ready
+            echo "⏳ Waiting for services to start..."
+            sleep 30
+
+            # Start containers
+            echo "🛠 Running docker compose up..."
+            docker compose up -d
+
+            # Wait for containers to be up
+            echo "⏳ Waiting for containers to be healthy..."
+            ATTEMPTS=0
+            MAX_ATTEMPTS=10
+            while ! docker compose ps | grep -q "Up"; do
+              sleep 5
+              ATTEMPTS=$((ATTEMPTS+1))
+              if [ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
+                echo "❌ Containers failed to start after waiting."
+                docker compose logs
+                exit 1
+              fi
+            done
+
+            echo "🎉 Deployment completed successfully!"
+          EOF

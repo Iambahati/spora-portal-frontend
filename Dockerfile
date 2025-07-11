@@ -23,7 +23,7 @@ RUN apk add --no-cache curl
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
-COPY .env.production /app/.env.production
+COPY .env.production /app/.env
 
 # Copy build output to nginx html directory
 COPY --from=builder /app/dist /usr/share/nginx/html
