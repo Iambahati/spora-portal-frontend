@@ -1,9 +1,9 @@
 import { EnhancedUserTable } from '@/components/admin/enhanced-user-table';
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiClient } from '@/lib/api-client';
+import { Sheet, SheetContent, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 
 export default function AdminUsersPage() {
   const [showModal, setShowModal] = useState(false);
@@ -13,6 +13,9 @@ export default function AdminUsersPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const allowedRoles = ["investor", "admin", "onboarding-officer"] as const;
+
+  // Store the refresh function from EnhancedUserTable
+  const tableRefreshFn = useRef<() => void>(undefined);
 
   const handleOpen = () => {
     setShowModal(true);
@@ -31,14 +34,15 @@ export default function AdminUsersPage() {
     setLoading(true);
     setError(null);
     setSuccess(null);
-    let apiRole = form.role;
-    if (apiRole === 'kyc-officer') apiRole = 'onboarding-officer';
+    let selectedRole = form.role;
+    if (selectedRole === 'kyc-officer') selectedRole = 'onboarding-officer';
     try {
-      await apiClient.createAdminUser({ ...form, role: apiRole as typeof allowedRoles[number] });
+      await apiClient.createAdminUser({ ...form, role: selectedRole as typeof allowedRoles[number] });
       setSuccess('User created successfully.');
       setTimeout(() => {
         setShowModal(false);
-        window.location.reload();
+        // Call the table refresh function if available
+        tableRefreshFn.current?.();
       }, 1000);
     } catch (err: any) {
       setError(err?.message || 'Failed to create user.');
@@ -60,39 +64,42 @@ export default function AdminUsersPage() {
             </div>
             <Button onClick={handleOpen} className="ml-4">Add User</Button>
           </div>
-          <EnhancedUserTable />
+          {/* Pass onRefresh callback to EnhancedUserTable instead of ref */}
+          <EnhancedUserTable onRefresh={fn => { tableRefreshFn.current = fn; }} />
         </div>
       </div>
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-              <Input id="full_name" name="full_name" placeholder="Full Name" value={form.full_name} onChange={handleChange} required />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <Input id="email" name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required />
-            </div>
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <select id="role" name="role" value={form.role} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                <option value="investor">Investor</option>
-                <option value="kyc-officer">KYC Officer</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            {error && <div className="text-red-600 text-sm">{error}</div>}
-            {success && <div className="text-green-600 text-sm">{success}</div>}
-            <DialogFooter>
-              <Button type="submit" disabled={loading}>{loading ? 'Creating...' : 'Create User'}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Remove Dialog and use only Sheet for slide-in modal */}
+      {showModal && (
+        <Sheet open={showModal} onOpenChange={setShowModal}>
+          <SheetContent side="right" className="max-w-md w-full">
+            <SheetTitle>Add New User</SheetTitle>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <Input id="full_name" name="full_name" placeholder="Full Name" value={form.full_name} onChange={handleChange} required />
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <Input id="email" name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required />
+              </div>
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select id="role" name="role" value={form.role} onChange={handleChange} className="w-full border rounded px-3 py-2">
+                  <option value="investor">Investor</option>
+                  <option value="kyc-officer">KYC Officer</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              {error && <div className="text-red-600 text-sm">{error}</div>}
+              {success && <div className="text-green-600 text-sm">{success}</div>}
+              <SheetFooter>
+                <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+                <Button type="submit" disabled={loading}>{loading ? 'Creating...' : 'Create User'}</Button>
+              </SheetFooter>
+            </form>
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }
